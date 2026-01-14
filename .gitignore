@@ -1,0 +1,26 @@
+
+node_modules/
+
+/build
+/dist
+/public/build 
+
+
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+
+.DS_Store # macOS
+.idea/ # WebStorm/IntelliJ
+.vscode/ # VS Code
+*.suo
+*.ntvsps
+*.njsproj
+*.sln
+*.vssscc
+
+
+.eslintcache
