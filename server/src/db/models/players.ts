@@ -11,7 +11,17 @@ export async function enterPlayer(name: string, lobbyId: string) {
   );
   return result.rows[0];
 }
+export async function exitPlayer(player_id: string, lobbyId: string) {
+  const result = await pool.query(
+    `
+      DELETE FROM players WHERE player_id = $1 and lobby_id=$2
+      RETURNING *
+      `,
+    [player_id, lobbyId]
+  );
 
+  return result.rows[0];
+}
 export async function votePlayer(
   playerId: string,
   playerToVoteId: string,
@@ -86,10 +96,10 @@ export async function getRoundFromLobby(lobbyId: string) {
 export async function getAllPlayersInLobby(lobbyId: string) {
   const result = await pool.query(
     `
-    SELECT * from players,
+    SELECT * FROM players
     WHERE lobby_id=$1
     `,
     [lobbyId]
   );
-  return result.rows[0];
+  return result.rows;
 }

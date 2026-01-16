@@ -1,18 +1,20 @@
  CREATE TABLE IF NOT EXISTS players (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
+  name TEXT UNIQUE NOT NULL,
   lobby_id UUID REFERENCES lobbies(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT now(),
   is_imposter BOOLEAN DEFAULT false,
+  is_host BOOLEAN,
   assigned_word TEXT
 );
 
 
 CREATE TABLE IF NOT EXISTS lobbies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    hostName TEXT,
     code TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT now(),
-    imposter_knows BOOLEAN,
+    imposter_knows BOOLEAN DEFAULT false,
     voting_round INTEGER DEFAULT 0 
 );
 

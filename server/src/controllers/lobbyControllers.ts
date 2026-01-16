@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { GameManager } from "../helpers/gameManager";
+import { GameManager } from "../services/gameManager";
 
 /**
  * Create a lobby
@@ -11,7 +11,7 @@ export async function createLobby(
 ) {
   try {
     const { name, options } = req.body;
-    const lobby = GameManager.createLobby({ hostName: name, options });
+    const lobby = GameManager.startLobby({ name: name, options });
     return res.status(201).json({ lobby });
   } catch (err) {
     next(err);

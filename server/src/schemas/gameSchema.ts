@@ -30,6 +30,7 @@ export type GameState = z.infer<typeof GameStateSchema>;
 export type GameOptions = z.infer<typeof GameOptionsSchema>;
 
 export const WordPairSchema = z.object({
+  category: z.string(),
   real: z.string(),
   imposter: z.string(),
 });

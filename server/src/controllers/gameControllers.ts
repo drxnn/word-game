@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { GameManager } from "../helpers/gameManager";
+import { GameManager } from "../services/gameManager";
 
 /**
  * Start a game in a lobby (choose imposters, assign words, create game state)

@@ -1,7 +1,7 @@
 // memory manager
 import { v4 as uuidv4 } from "uuid";
 import { WordPair, GameOptions } from "../types/index";
-import { WORD_PAIRS } from "./words";
+
 import {
   Lobby,
   Player,
@@ -9,6 +9,9 @@ import {
   VoteResult,
   GameState,
 } from "../schemas/gameSchema";
+import * as lobbiesModel from "../db/models/lobbies";
+import * as playersModel from "../db/models/players";
+import { enterPlayer } from "../db/models/players";
 
 function generateCode(len = 6) {
   // make sure you check later that the same code cannot be generated twice
@@ -23,81 +26,75 @@ class _GameManager {
   private lobbies = new Map<string, Lobby>();
   private games = new Map<string, Game>();
 
-  createLobby({
-    hostName,
+  async startLobby({
+    name,
     options,
   }: {
-    hostName: string;
+    name: string;
     options?: Partial<GameOptions>;
-  }): Lobby {
-    const code = generateCode();
-    const hostId = uuidv4();
-    const players = new Array();
-    const lobby: Lobby = {
-      code,
-      hostId,
-      players,
-      options: {
-        imposterCount: options?.imposterCount ?? 1,
-        imposterKnows: options?.imposterKnows ?? false,
-      },
-      createdAt: Date.now().toString(),
-    };
-    const host: Player = {
-      id: hostId,
-      name: hostName,
-      joinedAt: Date.now(),
-    };
-    if (lobby.players instanceof Map) {
-      lobby.players.set(hostId, host);
+  }) {
+    let lobbyCode = generateCode();
+    let imposter_knows = options?.imposterKnows ?? false;
+    try {
+      let lobby = await lobbiesModel.createLobby(lobbyCode);
+      if (!lobby)
+        throw new Error("Something went wrong with lobby creation, try again");
+      await lobbiesModel.setImposterKnows(lobby.id, imposter_knows);
+      let player = await enterPlayer(name, lobby.id);
+
+      // could change + add type safety later
+      return {
+        lobby,
+        player,
+      };
+    } catch (err) {
+      // better error handling later
+      console.log(err);
     }
-    this.lobbies.set(code, lobby);
-    console.log(`lobbies: ${this.lobbies}`);
-    return this._serializeLobby(lobby);
   }
 
-  joinLobby(code: string, name: string): Player {
-    const lobby = this.lobbies.get(code);
+  async joinLobby(code: string, name: string) {
+    if (!code) throw new Error("Lobby code is required");
+    if (!name || !name.trim()) throw new Error("Player name is required");
+
+    let lobby = await lobbiesModel.getLobbyByCode(code);
+    if (!lobby) {
+      throw new Error("Lobby with given code not found!");
+    }
+    try {
+      let player = await playersModel.enterPlayer(name, lobby.id);
+      return { player, lobby };
+    } catch (err: any) {
+      if (err.code === "23505")
+        throw new Error("Player name already taken in this lobby"); // NAME is unique so someone else took it
+      throw err;
+    }
+  }
+
+  async leaveLobby(lobbyId: string, playerId: string) {
+    if (!lobbyId) throw new Error("lobbyId is required");
+    if (!playerId) throw new Error("playerId is required");
+
+    const lobby = await lobbiesModel.getLobbyById(lobbyId);
     if (!lobby) throw new Error("Lobby not found");
-    const id = uuidv4();
-    const player: Player = { id, name, joinedAt: Date.now() };
-    if (lobby.players instanceof Map) {
-      lobby.players.set(id, player);
-    }
 
-    return player;
+    try {
+      let player = await playersModel.exitPlayer(playerId, lobbyId);
+
+      let playerCount = await lobbiesModel.countLobbyPlayers(lobbyId);
+      if (playerCount === 0) {
+        await lobbiesModel.deleteLobby(lobbyId);
+      }
+      // check if removed player was the host, if yes make someone else host
+    } catch (err) {}
   }
 
-  leaveLobby(code: string, playerId: string) {
-    const lobby = this.lobbies.get(code);
-    if (!lobby) throw new Error("Lobby not found");
-    if (lobby.players instanceof Map) {
-      lobby.players.delete(playerId);
-    }
-    // if empty, delete lobby
-    if (lobby.players instanceof Map && lobby.players.size === 0) {
-      this.lobbies.delete(code);
-    } else if (lobby.hostId === playerId) {
-      // assign new host
-      const next = lobby.players.keys().next().value?.toString();
-      lobby.hostId = next || "";
-    }
-  }
+  getLobby(code: string): Lobby {}
 
-  getLobby(code: string): Lobby {
-    const lobby = this.lobbies.get(code);
-    if (!lobby) throw new Error("Lobby not found");
-    return this._serializeLobby(lobby);
-  }
-
-  listLobbies() {
-    return Array.from(this.lobbies.values()).map((l) =>
-      this._serializeLobby(l)
-    );
-  }
+  listLobbies() {}
 
   startGame(code: string, starterId?: string) {
-    const lobby = this.lobbies.get(code);
+    const lobby = lobbiesModel.getLobbyByCode(code);
     if (!lobby) throw new Error("Lobby not found");
     const players = Array.from(lobby.players.values());
     if (players.length < 3) throw new Error("Need at least 3 players");
