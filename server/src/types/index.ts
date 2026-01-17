@@ -11,21 +11,14 @@ export type GameOptions = {
   imposterKnows: boolean;
 };
 
-export type WordPair = { real: string; imposter: string };
-
-export type Assignment = {
-  word: string;
-  isImposter: boolean;
-  revealed?: boolean;
-};
+export type WordPair = { category: string; real: string; imposter: string };
 
 export type Game = {
   code: string;
-  startedAt: number;
+  // startedAt: number;
   state: GameState;
   players: Player[];
-  assignments: Map<string, Assignment>;
-  votes: Map<string, string>; // voterId -> targetId
+  votes: Map<string, string>;
   imposters: string[];
   wordPairUsed: WordPair;
   starterId?: string;

@@ -23,9 +23,6 @@ function generateCode(len = 6) {
 }
 
 class _GameManager {
-  private lobbies = new Map<string, Lobby>();
-  private games = new Map<string, Game>();
-
   async startLobby({
     name,
     options,
@@ -33,23 +30,31 @@ class _GameManager {
     name: string;
     options?: Partial<GameOptions>;
   }) {
-    let lobbyCode = generateCode();
     let imposter_knows = options?.imposterKnows ?? false;
-    try {
-      let lobby = await lobbiesModel.createLobby(lobbyCode);
-      if (!lobby)
-        throw new Error("Something went wrong with lobby creation, try again");
-      await lobbiesModel.setImposterKnows(lobby.id, imposter_knows);
-      let player = await enterPlayer(name, lobby.id);
+    for (let i = 0; i < 5; i++) {
+      // try 5 times in case generated code isnt unique
+      let lobbyCode = generateCode();
 
-      // could change + add type safety later
-      return {
-        lobby,
-        player,
-      };
-    } catch (err) {
-      // better error handling later
-      console.log(err);
+      try {
+        let lobby = await lobbiesModel.createLobby(lobbyCode);
+        if (!lobby)
+          throw new Error(
+            "Something went wrong with lobby creation, try again"
+          );
+        await lobbiesModel.setImposterKnows(lobby.id, imposter_knows);
+        let player = await enterPlayer(name, lobby.id);
+
+        // could change + add type safety later
+        return {
+          lobby,
+          player,
+        };
+      } catch (err: any) {
+        if (err?.code === "23505") {
+          continue;
+        }
+        throw err;
+      }
     }
   }
 
@@ -84,61 +89,70 @@ class _GameManager {
       let playerCount = await lobbiesModel.countLobbyPlayers(lobbyId);
       if (playerCount === 0) {
         await lobbiesModel.deleteLobby(lobbyId);
+      } else {
+        return player;
       }
+
       // check if removed player was the host, if yes make someone else host
+    } catch (err) {
+      console.log("err"); // later
+    }
+  }
+
+  async getLobby(lobbyId: string) {
+    if (!lobbyId) {
+      throw new Error("lobby id missing");
+    }
+    try {
+      let lobby = await lobbiesModel.getLobbyById(lobbyId);
+
+      if (!lobby) {
+        throw new Error("Lobby not found");
+      }
+      return lobby;
     } catch (err) {}
   }
 
-  getLobby(code: string): Lobby {}
+  listLobbies() {} // dont need for now
 
-  listLobbies() {}
-
-  startGame(code: string, starterId?: string) {
-    const lobby = lobbiesModel.getLobbyByCode(code);
-    if (!lobby) throw new Error("Lobby not found");
-    const players = Array.from(lobby.players.values());
-    if (players.length < 3) throw new Error("Need at least 3 players");
-
-    // how many imposters are chosen
-
-    // choose random word pair
-    const pair = this._chooseWordPair();
-
-    // const game: Game = {
-    //   // stuff
-    // };
+  startGame(lobbyId: string, options: any) {
+    // game starts when all players are in the lobby, so they get each get assigned a word, then round 1 starts
+    //
   }
 
-  getGameState(code: string) {
-    const game = this.games.get(code);
-    if (!game) throw new Error("Game not found");
-    return this._serializeGame(game);
+  getGameState(code: string) {}
+
+  async castVote(lobbyId: string, voterId: string, targetId: string) {
+    if (!lobbyId) {
+      throw new Error("Lobby id required");
+    }
+    if (!voterId || !targetId) {
+      throw new Error("Something went wrong, could not cast vote ");
+    }
+
+    try {
+      let voted_player = await playersModel.votePlayer(
+        voterId,
+        targetId,
+        lobbyId
+      );
+
+      return voted_player;
+    } catch (err) {
+      console.log("err");
+    }
   }
 
-  revealWord(code: string, playerId: string) {
-    // helper to reveal word
-  }
+  async countVotes() {}
 
-  castVote(code: string, voterId: string, targetId: string) {
-    // helper to cast vote
-  }
-
-  endGame(code: string) {
-    if (!this.games.has(code)) throw new Error("Game not found");
-    this.games.delete(code);
-  }
+  endGame(code: string) {}
 
   private _chooseImposters(playerIds: string[], count: number) {
     // helper to choose imposter
   }
 
-  private _chooseWordPair(): WordPair {
+  private _chooseWordPair() {
     // helper to choose random word pair
-
-    return {
-      real: "real",
-      imposter: "fake",
-    };
   }
 
   // serialization helpers to convert Maps to plain objects for API responses
