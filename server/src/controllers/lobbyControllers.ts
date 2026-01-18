@@ -1,5 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { GameManager } from "../services/gameManager";
+import {
+  createLobbySchema,
+  joinLobbySchema,
+  leaveLobbySchema,
+} from "../schemas/gameSchema";
+import { z } from "zod";
 
 /**
  * Create a lobby
@@ -11,7 +17,14 @@ export async function createLobby(
 ) {
   try {
     const { name, options } = req.body;
-    const lobby = GameManager.startLobby({ name: name, options });
+
+    const parsed = createLobbySchema.safeParse({ name, options });
+    if (!parsed.success) {
+      const prettyError = z.prettifyError(parsed.error);
+      return res.status(400).send(prettyError);
+    }
+
+    const lobby = await GameManager.startLobby(parsed.data);
     return res.status(201).json({ lobby });
   } catch (err) {
     next(err);
@@ -29,14 +42,15 @@ export async function joinLobby(
   try {
     const { code } = req.params;
     const { name } = req.body;
-    if (!name || !code) {
-      res.status(400).send("name or lobby code is missing");
+    let parsed = joinLobbySchema.safeParse({ name, code });
+    if (!parsed.success) {
+      const prettyError = z.prettifyError(parsed.error);
+      return res.status(400).send(prettyError);
     }
-    const player = GameManager.joinLobby(code, name);
-    // when lobby is joined, player needs to be added to the data as part of the lobby in "players"
-    // request to db
 
-    return res.status(200).json({ player });
+    const lobbyPlayers = await GameManager.joinLobby(parsed.data);
+
+    return res.status(200).json({ lobbyPlayers });
   } catch (err) {
     next(err);
   }
@@ -53,7 +67,14 @@ export async function leaveLobby(
   try {
     const { code } = req.params;
     const { playerId } = req.body;
-    GameManager.leaveLobby(code, playerId);
+    let parsed = leaveLobbySchema.safeParse({ code, playerId });
+
+    if (!parsed.success) {
+      const prettyError = z.prettifyError(parsed.error);
+      return res.status(400).send(prettyError);
+    }
+
+    await GameManager.leaveLobby(parsed.data);
     return res.json({ ok: true });
   } catch (err) {
     next(err);

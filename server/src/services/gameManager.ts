@@ -1,13 +1,12 @@
 // memory manager
-import { v4 as uuidv4 } from "uuid";
-import { WordPair, GameOptions } from "../types/index";
 
 import {
   Lobby,
   Player,
-  Game,
-  VoteResult,
-  GameState,
+  GameOptions,
+  CreateLobbyInput,
+  JoinLobbyInput,
+  LeaveLobbySchema,
 } from "../schemas/gameSchema";
 import * as lobbiesModel from "../db/models/lobbies";
 import * as playersModel from "../db/models/players";
@@ -23,16 +22,10 @@ function generateCode(len = 6) {
 }
 
 class _GameManager {
-  async startLobby({
-    name,
-    options,
-  }: {
-    name: string;
-    options?: Partial<GameOptions>;
-  }) {
+  async startLobby({ name, options }: CreateLobbyInput) {
     let imposter_knows = options?.imposterKnows ?? false;
     for (let i = 0; i < 5; i++) {
-      // try 5 times in case generated code isnt unique
+      // try 5 times in case generated code isnt unique // good for now, will improve later
       let lobbyCode = generateCode();
 
       try {
@@ -44,7 +37,6 @@ class _GameManager {
         await lobbiesModel.setImposterKnows(lobby.id, imposter_knows);
         let player = await enterPlayer(name, lobby.id);
 
-        // could change + add type safety later
         return {
           lobby,
           player,
@@ -56,19 +48,20 @@ class _GameManager {
         throw err;
       }
     }
+    throw new Error(
+      "Unable to generate a unique lobby code after multiple attempts"
+    );
   }
 
-  async joinLobby(code: string, name: string) {
-    if (!code) throw new Error("Lobby code is required");
-    if (!name || !name.trim()) throw new Error("Player name is required");
-
+  async joinLobby({ code, name }: JoinLobbyInput) {
     let lobby = await lobbiesModel.getLobbyByCode(code);
     if (!lobby) {
       throw new Error("Lobby with given code not found!");
     }
     try {
       let player = await playersModel.enterPlayer(name, lobby.id);
-      return { player, lobby };
+      const players = await playersModel.getAllPlayersInLobby(lobby.id);
+      return { player, players, lobby }; // maybe just players + lobby
     } catch (err: any) {
       if (err.code === "23505")
         throw new Error("Player name already taken in this lobby"); // NAME is unique so someone else took it
@@ -76,10 +69,8 @@ class _GameManager {
     }
   }
 
-  async leaveLobby(lobbyId: string, playerId: string) {
-    if (!lobbyId) throw new Error("lobbyId is required");
-    if (!playerId) throw new Error("playerId is required");
-
+  async leaveLobby({ code, playerId }: LeaveLobbySchema) {
+    let lobbyId = await lobbiesModel.getLobbyByCode(code);
     const lobby = await lobbiesModel.getLobbyById(lobbyId);
     if (!lobby) throw new Error("Lobby not found");
 
@@ -115,12 +106,24 @@ class _GameManager {
 
   listLobbies() {} // dont need for now
 
-  startGame(lobbyId: string, options: any) {
+  // use zod later
+  async startGame(lobbyId: string, options: Partial<GameOptions>) {
     // game starts when all players are in the lobby, so they get each get assigned a word, then round 1 starts
     //
-  }
+    if (!lobbyId) {
+      throw new Error("Something went wrong, lobby id is missing");
+    }
 
-  getGameState(code: string) {}
+    let imposter_knows = options?.imposterKnows ?? false;
+    try {
+      await lobbiesModel.incrementVotingRound(lobbyId); // first time its called, this increments it to 1
+      await lobbiesModel.setImposterKnows(lobbyId, imposter_knows);
+      await playersModel.assignImposter(lobbyId);
+      await playersModel.assignWordsToPlayers(lobbyId);
+    } catch (err) {
+      console.log(err); // fix later
+    }
+  }
 
   async castVote(lobbyId: string, voterId: string, targetId: string) {
     if (!lobbyId) {
@@ -143,41 +146,19 @@ class _GameManager {
     }
   }
 
-  async countVotes() {}
+  async countVotes(lobbyId: string) {
+    if (!lobbyId) {
+      throw new Error("Something went wrong, lobby id not found");
+    }
 
-  endGame(code: string) {}
-
-  private _chooseImposters(playerIds: string[], count: number) {
-    // helper to choose imposter
+    try {
+      let votes = playersModel.countVotes(lobbyId); // returns all players {id,name, is imposter,vc}
+    } catch (err) {
+      console.log(err);
+    }
   }
 
-  private _chooseWordPair() {
-    // helper to choose random word pair
-  }
-
-  // serialization helpers to convert Maps to plain objects for API responses
-  private _serializeLobby(lobby: Lobby) {
-    return {
-      code: lobby.code,
-      hostId: lobby.hostId,
-      players: Array.from(lobby.players.values()),
-      options: lobby.options,
-      createdAt: lobby.createdAt,
-    } as Lobby;
-  }
-
-  private _serializeGame(game: Game) {
-    return {
-      code: game.code,
-      startedAt: game.startedAt,
-      state: game.state,
-      players: Array.from(game.players.values()),
-      votes: Object.fromEntries(game.votes.entries()),
-      imposters: game.imposters,
-      wordPairUsed: game.wordPairUsed,
-      starterId: game.starterId,
-    };
-  }
+  endGame(lobbyId: string) {}
 }
 
 export const GameManager = new _GameManager();

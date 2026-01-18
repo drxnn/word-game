@@ -12,7 +12,7 @@ export async function startGame(
   try {
     const { code } = req.params;
     const { starterId } = req.body;
-    const game = GameManager.startGame(code, starterId);
+    const game = await GameManager.startGame(code, starterId);
     return res.status(200).json({ game });
   } catch (err) {
     next(err);

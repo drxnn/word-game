@@ -51,6 +51,22 @@ export async function votePlayer(
 
   return result.rows[0];
 }
+export async function assignImposter(lobbyId: string, num: number = 1) {
+  const result = await pool.query(
+    `
+    UPDATE players 
+    SET is_imposter = true
+    WHERE id = (
+     SELECT id FROM players ORDER BY random() LIMIT 1
+    )
+   RETURNING *
+    
+    `,
+    [lobbyId]
+  );
+
+  result.rows[0];
+}
 
 export async function countVotes(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
@@ -194,12 +210,12 @@ export async function assignWordsToPlayers(lobbyId: string) {
   //
   let { rows } = await pool.query(
     `
-    SELECT real_word, imposter_word FROM word_pairs WHERE id = $1
+    SELECT category, real_word, imposter_word FROM word_pairs WHERE id = $1
     `,
     [wordPairId]
   );
 
-  const { real_word, imposter_word } = rows[0];
+  const { category, real_word, imposter_word } = rows[0];
   if (!rows[0] || !real_word || !imposter_word) {
     throw new Error("Something went wrong, word_pair not found.");
   }

@@ -2,32 +2,54 @@ import { z } from "zod";
 
 export const PlayerSchema = z.object({
   id: z.string(),
-  name: z.string().min(2),
-  joinedAt: z.number(),
-});
-export const GameOptionsSchema = z.object({
-  imposterCount: z.number().int().nonnegative(),
-  imposterKnows: z.boolean(),
+  name: z.string().min(2).max(20),
+  lobby_id: z.string(),
+  is_imposter: z.boolean(),
+  is_host: z.boolean(),
+  assigned_word: z.string(),
 });
 
 export const LobbySchema = z.object({
-  code: z.string(),
-  name: z.string().min(2).max(20).optional(),
-  hostId: z.string(),
-
-  players: z.array(PlayerSchema).default([]),
-  options: GameOptionsSchema,
-  // status: z.enum(["waiting", "playing", "finished"]).default("waiting"), // maybe readd later
+  id: z.string(),
+  code: z.string().length(6),
+  hostName: z.string().min(2).max(20),
+  imposter_knows: z.boolean(),
+  voting_round: z.number(),
   createdAt: z.string().optional(),
+  word_pair_id: z.string(),
 });
 
 export type Lobby = z.infer<typeof LobbySchema>;
 export type Player = z.infer<typeof PlayerSchema>;
 
-export const GameStateSchema = z.enum(["LOBBY", "IN_PROGRESS", "ENDED"]);
-export type GameState = z.infer<typeof GameStateSchema>;
+export const gameOptionsSchema = z.object({
+  imposterKnows: z.boolean().optional(),
+  num_of_imposters: z
+    .preprocess(
+      (val) => (val === null ? undefined : val),
+      z.union([z.literal(1), z.literal(2), z.literal(3)])
+    )
+    .default(1),
+});
+export const createLobbySchema = z.object({
+  name: z.string().min(2).max(20),
+  options: gameOptionsSchema,
+});
 
-export type GameOptions = z.infer<typeof GameOptionsSchema>;
+export const joinLobbySchema = createLobbySchema.pick({ name: true }).extend({
+  code: z.string().length(6),
+});
+
+export const leaveLobbySchema = joinLobbySchema.pick({ code: true }).extend({
+  playerId: z.string(),
+});
+
+export type LeaveLobbySchema = z.infer<typeof leaveLobbySchema>;
+
+export type JoinLobbyInput = z.infer<typeof joinLobbySchema>;
+
+export type CreateLobbyInput = z.infer<typeof createLobbySchema>;
+export type GameOptions = z.infer<typeof gameOptionsSchema>;
 
 export const WordPairSchema = z.object({
   category: z.string(),
@@ -36,23 +58,10 @@ export const WordPairSchema = z.object({
 });
 export type WordPair = z.infer<typeof WordPairSchema>;
 
-export const GameSchema = z.object({
-  code: z.string(),
-  startedAt: z.number(),
-  state: GameStateSchema,
-  players: z.array(PlayerSchema),
+// export const VoteResultSchema = z.object({
+//   finished: z.boolean(),
+//   success: z.boolean(),
+//   tally: z.record(z.string(), z.number()),
+// });
 
-  votes: z.map(z.string(), z.string()),
-  imposters: z.array(z.string()),
-  wordPairUsed: WordPairSchema,
-  starterId: z.string().optional(),
-});
-export type Game = z.infer<typeof GameSchema>;
-
-export const VoteResultSchema = z.object({
-  finished: z.boolean(),
-  success: z.boolean(),
-  tally: z.record(z.string(), z.number()),
-});
-
-export type VoteResult = z.infer<typeof VoteResultSchema>;
+// export type VoteResult = z.infer<typeof VoteResultSchema>;
