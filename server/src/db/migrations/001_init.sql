@@ -1,14 +1,12 @@
- CREATE TABLE IF NOT EXISTS players (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT UNIQUE NOT NULL,
-  lobby_id UUID REFERENCES lobbies(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT now(),
-  is_imposter BOOLEAN DEFAULT false,
-  is_host BOOLEAN,
-  assigned_word TEXT
+CREATE TABLE word_pairs (
+id UUID PRIMARY KEY,
+category TEXT,
+real_word TEXT,
+imposter_word TEXT
 );
 
 
+-- add a gameStatus field later
 CREATE TABLE IF NOT EXISTS lobbies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hostName TEXT,
@@ -18,6 +16,21 @@ CREATE TABLE IF NOT EXISTS lobbies (
     voting_round INTEGER DEFAULT 0,
     word_pair_id UUID REFERENCES word_pairs(id) ON DELETE SET NULL
 );
+
+
+CREATE TABLE IF NOT EXISTS players (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT UNIQUE NOT NULL,
+  lobby_id UUID REFERENCES lobbies(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT now(),
+  is_imposter BOOLEAN DEFAULT false,
+  is_host BOOLEAN,
+  assigned_word TEXT
+  );
+
+
+
+
 
 -- keep records if needed
 CREATE TABLE IF NOT EXISTS votes (
@@ -38,10 +51,3 @@ CREATE TABLE IF NOT EXISTS used_words_per_lobby (
     PRIMARY KEY (lobby_id, word_pair_id)
 
 )
-
-CREATE TABLE word_pairs (
-id UUID PRIMARY KEY,
-category TEXT,
-real_word TEXT,
-imposter_word TEXT
-);

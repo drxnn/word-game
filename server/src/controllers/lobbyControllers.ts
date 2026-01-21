@@ -4,8 +4,12 @@ import {
   createLobbySchema,
   joinLobbySchema,
   leaveLobbySchema,
+  DeleteLobbySchema,
+  getLobbySchema,
+  deleteLobbySchema,
 } from "../schemas/gameSchema";
 import { z } from "zod";
+import { getLobbyByCode } from "../db/models/lobbies";
 
 /**
  * Create a lobby
@@ -13,9 +17,10 @@ import { z } from "zod";
 export async function createLobby(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
+    console.log("we are here");
     const { name, options } = req.body;
 
     const parsed = createLobbySchema.safeParse({ name, options });
@@ -23,6 +28,9 @@ export async function createLobby(
       const prettyError = z.prettifyError(parsed.error);
       return res.status(400).send(prettyError);
     }
+    console.log("body:", req.body);
+    console.log("options type:", typeof options);
+    console.log("parsed.data is: ", parsed.data);
 
     const lobby = await GameManager.startLobby(parsed.data);
     return res.status(201).json({ lobby });
@@ -37,7 +45,7 @@ export async function createLobby(
 export async function joinLobby(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const { code } = req.params;
@@ -49,6 +57,7 @@ export async function joinLobby(
     }
 
     const lobbyPlayers = await GameManager.joinLobby(parsed.data);
+    console.log("we are here, after the call to joinLobby");
 
     return res.status(200).json({ lobbyPlayers });
   } catch (err) {
@@ -62,7 +71,7 @@ export async function joinLobby(
 export async function leaveLobby(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
     const { code } = req.params;
@@ -84,32 +93,59 @@ export async function leaveLobby(
 /**
  * Get lobby info
  */
+
 export async function getLobby(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
+  const { code } = req.params;
+  let parsed = getLobbySchema.safeParse(code);
+
+  if (!parsed.success) {
+    const prettyError = z.prettifyError(parsed.error);
+    return res.status(400).send(prettyError);
+  }
   try {
-    const { code } = req.params;
-    const lobby = GameManager.getLobby(code);
-    return res.json({ lobby });
+    let lobby = await getLobbyByCode(parsed.data.code);
+
+    return res.status(200).json({ lobby });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteLobby(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const { id } = req.body;
+  const parsed = deleteLobbySchema.safeParse(id);
+
+  if (!parsed.success) {
+    const prettyError = z.prettifyError(parsed.error);
+    return res.status(400).send(prettyError);
+  }
+  try {
+    let lobby = await GameManager.deleteLobby(parsed.data.id);
+
+    res.json({ lobby });
   } catch (err) {
     next(err);
   }
 }
 
 /**
- * List lobbies (dev)
+ * List lobbies
  */
-export async function listLobbies(
-  _req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const lobbies = GameManager.listLobbies();
-    return res.json({ lobbies });
-  } catch (err) {
-    next(err);
-  }
-}
+// export async function listLobbies(
+//   _req: Request,
+//   res: Response,
+//   next: NextFunction,
+// ) {
+//   try {
+//   } catch (err) {
+//     next(err);
+//   }
+// }

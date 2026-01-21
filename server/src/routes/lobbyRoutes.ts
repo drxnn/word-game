@@ -8,13 +8,15 @@ const router = Router();
  * POST /api/lobby/create
  * body: { name: string, options?: { imposterCount?: number, imposterKnows?: boolean } }
  */
-router.post("/create", validateBody(["name"]), lobbyController.createLobby);
+router.post("/create", lobbyController.createLobby);
+
+router.delete("/delete/:id", lobbyController.deleteLobby);
 
 /**
  * POST /api/lobby/:code/join
- * body: { name: string }
+ * body:\
  */
-router.post("/:code/join", validateBody(["name"]), lobbyController.joinLobby);
+router.post("/:code/join", lobbyController.joinLobby);
 
 /**
  * GET /api/lobby/:code
@@ -28,12 +30,11 @@ router.get("/:code", lobbyController.getLobby);
 router.post(
   "/:code/leave",
   validateBody(["playerId"]),
-  lobbyController.leaveLobby
+  lobbyController.leaveLobby,
 );
 
 /**
- * GET /api/lobby (list lobbies - useful for dev)
+
  */
-router.get("/", lobbyController.listLobbies);
 
 export default router;

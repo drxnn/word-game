@@ -8,6 +8,15 @@ export const PlayerSchema = z.object({
   is_host: z.boolean(),
   assigned_word: z.string(),
 });
+export const ClientInfoSchema = z.object({
+  playerId: z.string(),
+  lobbyId: z.string(),
+  clientId: z.string(),
+  targetId: z.string().optional(),
+  name: z.string().optional(),
+  code: z.string().length(6).optional(),
+});
+export type ClientInfo = z.infer<typeof ClientInfoSchema>;
 
 export const LobbySchema = z.object({
   id: z.string(),
@@ -27,7 +36,7 @@ export const gameOptionsSchema = z.object({
   num_of_imposters: z
     .preprocess(
       (val) => (val === null ? undefined : val),
-      z.union([z.literal(1), z.literal(2), z.literal(3)])
+      z.union([z.literal(1), z.literal(2), z.literal(3)]),
     )
     .default(1),
 });
@@ -36,14 +45,36 @@ export const createLobbySchema = z.object({
   options: gameOptionsSchema,
 });
 
+export const deleteLobbySchema = z.object({
+  id: z.string(),
+});
+
+export const getGameStateSchema = z.object({
+  lobbyId: z.string(),
+});
+
+export const voteSchema = z.object({
+  lobbyId: z.string(),
+  voterId: z.string(),
+  targetId: z.string(),
+});
+
+export const endGameSchema = z.object({
+  lobbyId: z.string(),
+});
+
+export type DeleteLobbySchema = z.infer<typeof deleteLobbySchema>;
+
 export const joinLobbySchema = createLobbySchema.pick({ name: true }).extend({
   code: z.string().length(6),
 });
+export const getLobbySchema = joinLobbySchema.pick({ code: true });
 
 export const leaveLobbySchema = joinLobbySchema.pick({ code: true }).extend({
   playerId: z.string(),
 });
 
+export type GetLobbySchema = z.infer<typeof getLobbySchema>;
 export type LeaveLobbySchema = z.infer<typeof leaveLobbySchema>;
 
 export type JoinLobbyInput = z.infer<typeof joinLobbySchema>;

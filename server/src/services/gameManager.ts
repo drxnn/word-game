@@ -27,13 +27,17 @@ class _GameManager {
     for (let i = 0; i < 5; i++) {
       // try 5 times in case generated code isnt unique // good for now, will improve later
       let lobbyCode = generateCode();
+      console.log(`generated lobby code is: ${lobbyCode}`);
 
       try {
         let lobby = await lobbiesModel.createLobby(lobbyCode);
-        if (!lobby)
+        if (!lobby) {
+          console.log(`this is the lobby code: ${lobbyCode}`);
+
           throw new Error(
-            "Something went wrong with lobby creation, try again"
+            "Something went wrong with lobby creation, try again",
           );
+        }
         await lobbiesModel.setImposterKnows(lobby.id, imposter_knows);
         let player = await enterPlayer(name, lobby.id);
 
@@ -49,7 +53,7 @@ class _GameManager {
       }
     }
     throw new Error(
-      "Unable to generate a unique lobby code after multiple attempts"
+      "Unable to generate a unique lobby code after multiple attempts",
     );
   }
 
@@ -61,7 +65,7 @@ class _GameManager {
     try {
       let player = await playersModel.enterPlayer(name, lobby.id);
       const players = await playersModel.getAllPlayersInLobby(lobby.id);
-      return { player, players, lobby }; // maybe just players + lobby
+      return { players, lobby }; // maybe just players + lobby
     } catch (err: any) {
       if (err.code === "23505")
         throw new Error("Player name already taken in this lobby"); // NAME is unique so someone else took it
@@ -137,7 +141,7 @@ class _GameManager {
       let voted_player = await playersModel.votePlayer(
         voterId,
         targetId,
-        lobbyId
+        lobbyId,
       );
 
       return voted_player;
@@ -158,7 +162,15 @@ class _GameManager {
     }
   }
 
-  endGame(lobbyId: string) {}
+  async deleteLobby(lobbyId: string) {
+    // delete
+    try {
+      let lobby = await lobbiesModel.deleteLobby(lobbyId);
+      return lobby.rows[0];
+    } catch (err) {
+      console.log("err");
+    }
+  }
 }
 
 export const GameManager = new _GameManager();

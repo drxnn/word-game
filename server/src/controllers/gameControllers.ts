@@ -1,19 +1,20 @@
 import { Request, Response, NextFunction } from "express";
 import { GameManager } from "../services/gameManager";
-
+import {
+  endGameSchema,
+  getGameStateSchema,
+  voteSchema,
+} from "../schemas/gameSchema";
+import { z } from "zod";
 /**
  * Start a game in a lobby (choose imposters, assign words, create game state)
  */
 export async function startGame(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
-    const { code } = req.params;
-    const { starterId } = req.body;
-    const game = await GameManager.startGame(code, starterId);
-    return res.status(200).json({ game });
   } catch (err) {
     next(err);
   }
@@ -25,30 +26,17 @@ export async function startGame(
 export async function getGameState(
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   try {
-    const { code } = req.params;
-    const state = GameManager.getGameState(code);
-    return res.json({ state });
-  } catch (err) {
-    next(err);
-  }
-}
-
-/**
- * Reveal word for a player (optional tracking)
- */
-export async function revealWord(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const { code } = req.params;
-    const { playerId } = req.body;
-    const player = GameManager.revealWord(code, playerId);
-    return res.json({ player });
+    const { lobbyId } = req.params;
+    const parsed = getGameStateSchema.safeParse({ lobbyId });
+    if (!parsed.success) {
+      const prettyError = z.prettifyError(parsed.error);
+      return res.status(400).send(prettyError);
+    }
+    const lobby = await GameManager.getLobby(parsed.data.lobbyId);
+    return res.status(200).json({ lobby });
   } catch (err) {
     next(err);
   }
@@ -57,12 +45,21 @@ export async function revealWord(
 /**
  * Cast a vote
  */
+
 export async function vote(req: Request, res: Response, next: NextFunction) {
   try {
-    const { code } = req.params;
-    const { voterId, targetId } = req.body;
-    const result = GameManager.castVote(code, voterId, targetId);
-    return res.json(result);
+    const { lobbyId, voterId, targetId } = req.body;
+    const parsed = voteSchema.safeParse({ lobbyId, voterId, targetId });
+    if (!parsed.success) {
+      const prettyError = z.prettifyError(parsed.error);
+      return res.status(400).send(prettyError);
+    }
+    const votedPlayer = await GameManager.castVote(
+      parsed.data.lobbyId,
+      parsed.data.voterId,
+      parsed.data.targetId,
+    );
+    return res.status(200).json({ votedPlayer });
   } catch (err) {
     next(err);
   }
@@ -73,9 +70,14 @@ export async function vote(req: Request, res: Response, next: NextFunction) {
  */
 export async function endGame(req: Request, res: Response, next: NextFunction) {
   try {
-    const { code } = req.params;
-    GameManager.endGame(code);
-    return res.json({ ok: true });
+    const { lobbyId } = req.body;
+    const parsed = endGameSchema.safeParse({ lobbyId });
+    if (!parsed.success) {
+      const prettyError = z.prettifyError(parsed.error);
+      return res.status(400).send(prettyError);
+    }
+    const lobby = await GameManager.deleteLobby(parsed.data.lobbyId);
+    return res.status(200).json({ lobby });
   } catch (err) {
     next(err);
   }

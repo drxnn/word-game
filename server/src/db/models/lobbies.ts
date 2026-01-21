@@ -10,13 +10,14 @@ export async function createLobby(code: string) {
         INSERT INTO lobbies (code)
         VALUES ($1) RETURNING *
         `,
-      [code]
+      [code],
     );
     return result.rows[0];
   } catch (err: any) {
     if (err.code === "23505") {
       throw new Error("Lobby code already exists");
     }
+    throw err;
   }
 }
 
@@ -30,7 +31,7 @@ export async function setImposterKnows(lobbyId: string, flag: boolean) {
     SET imposter_knows = $2
     WHERE id=$1
     `,
-    [lobbyId, flag]
+    [lobbyId, flag],
   );
 }
 
@@ -41,7 +42,7 @@ export async function incrementVotingRound(lobbyId: string) {
     SET voting_round = voting_round + 1 
     WHERE id = $1
     `,
-    [lobbyId]
+    [lobbyId],
   );
 }
 
@@ -52,7 +53,7 @@ export async function resetLobbyVotingRound(lobbyId: string) {
     `
 UPDATE lobbies SET voting_round = 0 WHERE id=$1
 `,
-    [lobbyId]
+    [lobbyId],
   );
 }
 
@@ -63,7 +64,7 @@ export async function countLobbyPlayers(lobbyId: string) {
     `
     SELECT COUNT(*) as count FROM players WHERE lobby_id = $1
     `,
-    [lobbyId]
+    [lobbyId],
   );
   return Number(result.rows[0].count);
 }
@@ -77,7 +78,7 @@ export async function deleteLobby(lobbyId: string) {
     WHERE id=$1
     RETURNING *
     `,
-    [lobbyId]
+    [lobbyId],
   );
   return result.rows[0];
 }
@@ -88,7 +89,7 @@ export async function getLobbyById(lobbyId: string) {
   const result = await pool.query(
     `  SELECT * FROM lobbies WHERE id = $1
         `,
-    [lobbyId]
+    [lobbyId],
   );
   return result.rows[0] ?? null;
 }
@@ -99,7 +100,7 @@ export async function getLobbyByCode(code: string) {
   const result = await pool.query(
     `  SELECT * FROM lobbies WHERE code = $1
         `,
-    [code]
+    [code],
   );
   return result.rows[0] ?? null; // take care in routes if its null
 }
