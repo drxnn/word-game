@@ -57,13 +57,24 @@ class _GameManager {
     );
   }
 
+  async getPlayerInLobby(lobbyId: string, playerId: string) {
+    try {
+      let player = await playersModel.getPlayerInLobby(lobbyId, playerId);
+      if (!player) {
+        throw new Error("Player doesn't exist in lobby");
+      }
+      return player;
+    } catch (err) {
+      throw err;
+    }
+  }
   async joinLobby({ code, name }: JoinLobbyInput) {
     let lobby = await lobbiesModel.getLobbyByCode(code);
     if (!lobby) {
       throw new Error("Lobby with given code not found!");
     }
     try {
-      let player = await playersModel.enterPlayer(name, lobby.id);
+      await playersModel.enterPlayer(name, lobby.id);
       const players = await playersModel.getAllPlayersInLobby(lobby.id);
       return { players, lobby }; // maybe just players + lobby
     } catch (err: any) {

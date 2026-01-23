@@ -146,6 +146,17 @@ export async function getAllPlayersInLobby(lobbyId: string) {
   return result.rows;
 }
 
+export async function getPlayerInLobby(lobbyId: string, playerId: string) {
+  const result = await pool.query(
+    `
+    SELECT * FROM players
+    WHERE lobby_id=$1 AND id=$2
+    `,
+    [lobbyId, playerId],
+  );
+  return result.rows;
+}
+
 export async function chooseWordPairId(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
