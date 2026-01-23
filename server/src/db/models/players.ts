@@ -1,3 +1,4 @@
+import { Player } from "../../schemas/gameSchema";
 import { pool } from "../index";
 
 export async function enterPlayer(name: string, lobbyId: string) {
@@ -9,7 +10,7 @@ export async function enterPlayer(name: string, lobbyId: string) {
         INSERT INTO players (name, lobby_id)
         VALUES($1, $2) RETURNING *
         `,
-    [name, lobbyId]
+    [name, lobbyId],
   );
   return result.rows[0];
 }
@@ -23,7 +24,7 @@ export async function exitPlayer(player_id: string, lobbyId: string) {
       DELETE FROM players WHERE id = $1 and lobby_id=$2
       RETURNING *
       `,
-    [player_id, lobbyId]
+    [player_id, lobbyId],
   );
 
   return result.rows[0];
@@ -32,7 +33,7 @@ export async function exitPlayer(player_id: string, lobbyId: string) {
 export async function votePlayer(
   playerId: string,
   playerToVoteId: string,
-  lobbyId: string
+  lobbyId: string,
 ) {
   if (!playerId) throw new Error("Player ID is required");
   if (!playerToVoteId) throw new Error("Player to vote ID is required");
@@ -46,7 +47,7 @@ export async function votePlayer(
    VALUES ($1, $2, $3, $4)
    RETURNING *
    `,
-    [playerId, playerToVoteId, lobbyId, voting_round]
+    [playerId, playerToVoteId, lobbyId, voting_round],
   );
 
   return result.rows[0];
@@ -62,7 +63,7 @@ export async function assignImposter(lobbyId: string, num: number = 1) {
    RETURNING *
     
     `,
-    [lobbyId]
+    [lobbyId],
   );
 
   result.rows[0];
@@ -89,7 +90,7 @@ export async function countVotes(lobbyId: string) {
     ORDER BY vote_count DESC
 
     `,
-    [lobbyId, voting_round]
+    [lobbyId, voting_round],
   );
 
   return rows; // first one has the most vote but check if imposter
@@ -97,7 +98,7 @@ export async function countVotes(lobbyId: string) {
 
 export async function checkIfAllPlayersVoted(
   lobbyId: string,
-  currentRound: number
+  currentRound: number,
 ) {
   if (!lobbyId) throw new Error("Lobby ID is required");
   if (currentRound === undefined || currentRound === null)
@@ -110,7 +111,7 @@ export async function checkIfAllPlayersVoted(
     (SELECT COUNT(DISTINCT player_id) FROM votes
      WHERE lobby_id=$1 AND voting_round=$2) AS votes_cast
     `,
-    [lobbyId, currentRound]
+    [lobbyId, currentRound],
   );
 
   const { total_players, votes_cast } = rows[0];
@@ -126,7 +127,7 @@ export async function getRoundFromLobby(lobbyId: string) {
     `
     SELECT voting_round FROM LOBBIES WHERE id=$1
   `,
-    [lobbyId]
+    [lobbyId],
   );
 
   return result.rows[0]?.voting_round;
@@ -140,7 +141,7 @@ export async function getAllPlayersInLobby(lobbyId: string) {
     SELECT * FROM players
     WHERE lobby_id=$1
     `,
-    [lobbyId]
+    [lobbyId],
   );
   return result.rows;
 }
@@ -163,7 +164,7 @@ export async function chooseWordPairId(lobbyId: string) {
     WHERE id = $1
     RETURNING word_pair_id;
     `,
-    [lobbyId]
+    [lobbyId],
   );
 
   if (result.rows[0]?.word_pair_id) {
@@ -172,7 +173,7 @@ export async function chooseWordPairId(lobbyId: string) {
       INSERT INTO used_words_per_lobby (lobby_id, word_pair_id)
       VALUES ($1, $2);
       `,
-      [lobbyId, result.rows[0].word_pair_id]
+      [lobbyId, result.rows[0].word_pair_id],
     );
   }
   return result.rows[0].word_pair_id;
@@ -186,7 +187,7 @@ export async function getImposterFromLobby(lobbyId: string) {
     SELECT id FROM players 
     WHERE lobby_id = $1 AND is_imposter = true 
     `,
-    [lobbyId]
+    [lobbyId],
   );
 
   return result.rows[0]?.id ?? null;
@@ -212,7 +213,7 @@ export async function assignWordsToPlayers(lobbyId: string) {
     `
     SELECT category, real_word, imposter_word FROM word_pairs WHERE id = $1
     `,
-    [wordPairId]
+    [wordPairId],
   );
 
   const { category, real_word, imposter_word } = rows[0];
@@ -228,8 +229,8 @@ export async function assignWordsToPlayers(lobbyId: string) {
    WHERE lobby_id = $3
    RETURNING *
     `,
-    [real_word, imposter_word, lobbyId]
+    [real_word, imposter_word, lobbyId],
   );
 
-  return result.rows; // maybe dont need this
+  return result.rows;
 }

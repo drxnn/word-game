@@ -110,6 +110,19 @@ class _GameManager {
 
   listLobbies() {} // dont need for now
 
+  async getAllPlayers(lobbyId: string) {
+    if (!lobbyId) {
+      throw new Error("Something went wrong, lobby id is missing");
+    }
+
+    try {
+      let players = await playersModel.getAllPlayersInLobby(lobbyId);
+      return players;
+    } catch (err) {
+      console.log(err);
+    }
+  }
+
   // use zod later
   async startGame(lobbyId: string, options: Partial<GameOptions>) {
     // game starts when all players are in the lobby, so they get each get assigned a word, then round 1 starts
@@ -120,9 +133,9 @@ class _GameManager {
 
     let imposter_knows = options?.imposterKnows ?? false;
     try {
-      await lobbiesModel.incrementVotingRound(lobbyId); // first time its called, this increments it to 1
+      let round = await lobbiesModel.incrementVotingRound(lobbyId); // first time its called, this increments it to 1
       await lobbiesModel.setImposterKnows(lobbyId, imposter_knows);
-      await playersModel.assignImposter(lobbyId);
+      let imposter = await playersModel.assignImposter(lobbyId);
       await playersModel.assignWordsToPlayers(lobbyId);
     } catch (err) {
       console.log(err); // fix later
@@ -157,6 +170,7 @@ class _GameManager {
 
     try {
       let votes = playersModel.countVotes(lobbyId); // returns all players {id,name, is imposter,vc}
+      return votes;
     } catch (err) {
       console.log(err);
     }

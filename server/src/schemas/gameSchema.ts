@@ -8,15 +8,6 @@ export const PlayerSchema = z.object({
   is_host: z.boolean(),
   assigned_word: z.string(),
 });
-export const ClientInfoSchema = z.object({
-  playerId: z.string(),
-  lobbyId: z.string(),
-  clientId: z.string(),
-  targetId: z.string().optional(),
-  name: z.string().optional(),
-  code: z.string().length(6).optional(),
-});
-export type ClientInfo = z.infer<typeof ClientInfoSchema>;
 
 export const LobbySchema = z.object({
   id: z.string(),
@@ -40,6 +31,16 @@ export const gameOptionsSchema = z.object({
     )
     .default(1),
 });
+export const ClientInfoSchema = z.object({
+  playerId: z.string().optional(),
+  lobbyId: z.string().optional(),
+  clientId: z.string(),
+  targetId: z.string().optional(),
+  name: z.string().optional(),
+  code: z.string().length(6).optional(),
+  options: gameOptionsSchema.optional(),
+});
+export type ClientInfo = z.infer<typeof ClientInfoSchema>;
 export const createLobbySchema = z.object({
   name: z.string().min(2).max(20),
   options: gameOptionsSchema,

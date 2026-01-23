@@ -22,6 +22,7 @@ export async function createLobby(
   try {
     console.log("we are here");
     const { name, options } = req.body;
+    // generate a websocket token for authentication later on
 
     const parsed = createLobbySchema.safeParse({ name, options });
     if (!parsed.success) {
@@ -48,6 +49,7 @@ export async function joinLobby(
   next: NextFunction,
 ) {
   try {
+    // dont forget ws token
     const { code } = req.params;
     const { name } = req.body;
     let parsed = joinLobbySchema.safeParse({ name, code });
