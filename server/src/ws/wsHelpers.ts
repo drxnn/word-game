@@ -60,6 +60,7 @@ export const parseWsMessage = (
   data: RawData,
 ): { ok: true; value: any } | { ok: false; error: string } => {
   // goodfornow
+
   if (typeof data === "string") {
     try {
       return { ok: true, value: JSON.parse(data) };

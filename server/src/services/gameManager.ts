@@ -135,7 +135,7 @@ class _GameManager {
   }
 
   // use zod later
-  async startGame(lobbyId: string, options: Partial<GameOptions>) {
+  async startGame(lobbyId: string, options?: GameOptions) {
     // game starts when all players are in the lobby, so they get each get assigned a word, then round 1 starts
     //
     if (!lobbyId) {
@@ -149,7 +149,7 @@ class _GameManager {
       let imposter = await playersModel.assignImposter(lobbyId);
       await playersModel.assignWordsToPlayers(lobbyId);
     } catch (err) {
-      console.log(err); // fix later
+      throw new Error("Error: Could not start game!");
     }
   }
 

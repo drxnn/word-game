@@ -3,6 +3,7 @@ import { GameManager } from "../services/gameManager";
 import {
   endGameSchema,
   getGameStateSchema,
+  startGameSchema,
   voteSchema,
 } from "../schemas/gameSchema";
 import { z } from "zod";
@@ -14,7 +15,14 @@ export async function startGame(
   res: Response,
   next: NextFunction,
 ) {
+  const { lobbyId, options } = req.body;
+  const parsed = startGameSchema.safeParse({ lobbyId, options });
+  if (!parsed.success) {
+    const prettyError = z.prettifyError(parsed.error);
+    return res.status(400).send(prettyError);
+  }
   try {
+    await GameManager.startGame(parsed.data.lobbyId, parsed.data.options);
   } catch (err) {
     next(err);
   }
@@ -65,9 +73,6 @@ export async function vote(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-/**
- * End game manually
- */
 export async function endGame(req: Request, res: Response, next: NextFunction) {
   try {
     const { lobbyId } = req.body;

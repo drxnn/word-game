@@ -4,7 +4,6 @@ import {
   createLobbySchema,
   joinLobbySchema,
   leaveLobbySchema,
-  DeleteLobbySchema,
   getLobbySchema,
   deleteLobbySchema,
 } from "../schemas/gameSchema";
@@ -20,6 +19,7 @@ export async function createLobby(
   next: NextFunction,
 ) {
   try {
+    // ws token generated
     console.log("we are here");
     const { name, options } = req.body;
     // generate a websocket token for authentication later on
@@ -137,17 +137,3 @@ export async function deleteLobby(
     next(err);
   }
 }
-
-/**
- * List lobbies
- */
-// export async function listLobbies(
-//   _req: Request,
-//   res: Response,
-//   next: NextFunction,
-// ) {
-//   try {
-//   } catch (err) {
-//     next(err);
-//   }
-// }

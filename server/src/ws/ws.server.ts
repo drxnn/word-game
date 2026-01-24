@@ -1,4 +1,4 @@
-import WebSocket, { WebSocketServer } from "ws";
+import WebSocket, { WebSocketServer, type VerifyClientCallbackSync } from "ws";
 import { server } from "../main";
 
 import { GameManager } from "../services/gameManager";
@@ -15,7 +15,18 @@ import {
   socketToClient,
 } from "./wsHelpers";
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({
+  server,
+  verifyClient: ({ origin }: { origin?: string }) => {
+    const allowed = ["http://localhost:4000"];
+    if (!allowed.includes(origin?.toLowerCase() ?? "")) {
+      console.log(`Rejected unauthorized origin: ${origin}`);
+      return false;
+    }
+    return true;
+  },
+  maxPayload: 1024 * 24,
+});
 
 wss.on("connection", (ws, req) => {
   // add authentication later, have the db create a wsToken when a player creates a lobby or joins a lobby
@@ -27,7 +38,7 @@ wss.on("connection", (ws, req) => {
     console.error("ws error", err);
   });
 
-  ws.on("message", async function message(data) {
+  ws.on("message", async function message(data, isBinary) {
     console.log("received: %s", data);
 
     let raw = parseWsMessage(data);
@@ -100,7 +111,7 @@ wss.on("connection", (ws, req) => {
               playerId: clientInfo.playerId!,
             });
           } catch (err) {
-            sendError(ws, "vote count failed");
+            sendError(ws, "leaving lobby failed");
             break;
           }
 
@@ -110,7 +121,7 @@ wss.on("connection", (ws, req) => {
               lobbyId: clientInfo.lobbyId,
               playerId: clientInfo.playerId,
               name: clientInfo.name,
-            }, // so everyone connected receives the player to be removed
+            },
           });
           break;
         }
@@ -155,10 +166,7 @@ wss.on("connection", (ws, req) => {
           }
 
           try {
-            await GameManager.startGame(
-              clientInfo.lobbyId,
-              clientInfo.options ?? {},
-            );
+            await GameManager.startGame(clientInfo.lobbyId, clientInfo.options);
             // everyone has words assigned to them
             let players = await GameManager.getAllPlayers(clientInfo.lobbyId);
             if (!players) {

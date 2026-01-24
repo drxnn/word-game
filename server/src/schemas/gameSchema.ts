@@ -46,6 +46,11 @@ export const createLobbySchema = z.object({
   options: gameOptionsSchema,
 });
 
+export const startGameSchema = z.object({
+  lobbyId: z.string(),
+  options: gameOptionsSchema.optional(),
+});
+
 export const deleteLobbySchema = z.object({
   id: z.string(),
 });
