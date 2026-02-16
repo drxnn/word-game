@@ -5,7 +5,7 @@ export const PlayerSchema = z.object({
   id: z.uuid(),
   name: z.string().min(2).max(20).trim(),
   lobby_id: z.uuid(),
-  is_imposter: z.boolean(),
+  isImposter: z.boolean(),
   is_host: z.boolean(),
   assigned_word: z.string().max(50).trim(),
 });
@@ -71,6 +71,12 @@ export const voteSchema = z.object({
   targetId: z.uuid(),
 });
 
+export const playerForLobbySchema = PlayerSchema.pick({
+  name: true,
+  lobby_id: true,
+  id: true,
+});
+
 export const endGameSchema = z.object({
   lobbyId: z.uuid(),
 });
@@ -117,6 +123,12 @@ export const ServerToClientMapSchema = z.object({
     name: true,
     playerId: true,
     targetId: true,
+  }),
+  playerInfo: PlayerSchema.pick({
+    name: true,
+    is_host: true,
+    isImposter: true,
+    assigned_word: true,
   }),
   playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }),
   startGameInfo: z.array(PlayerSchema),
@@ -188,6 +200,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerLeft"),
     msg: ServerToClientMapSchema.shape.playerLeft,
+  }),
+  z.object({
+    type: z.literal("playerInfo"),
+    msg: ServerToClientMapSchema.shape.playerInfo,
   }),
   z.object({
     type: z.literal("playerVoted"),
@@ -274,13 +290,14 @@ export type ClientToServerMap = z.infer<typeof ClientToServerMapSchema>;
 
 export type ClientToServer = z.infer<typeof ClientToServerSchema>;
 export type ServerToClient = z.infer<typeof ServerToClientSchema>;
+export type PlayerForLobbyType = z.infer<typeof playerForLobbySchema>;
 
 export type Lobby = z.infer<typeof LobbySchema>;
 export type Player = z.infer<typeof PlayerSchema>;
 export type LobbyType = {
   lobby: Lobby;
   player: Player;
-  players: Player[];
+  players: PlayerForLobbyType[];
 };
 
 export type GetLobbySchema = z.infer<typeof getLobbySchema>;

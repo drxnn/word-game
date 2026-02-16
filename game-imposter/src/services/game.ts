@@ -36,23 +36,25 @@ export async function joinLobby({ name, code }: JoinLobbyInput) {
       },
     });
     // return { player, players, lobby };
+    // also notify via websocket that we joined msgType: "joinedLobby"
     return response.json();
   } catch (err) {
     console.log(err);
   }
 }
-// export async function startGame({
-//   lobbyId,
-//   options,
-// }: {
-//   lobbyId: string;
-//   options: GameOptions;
-// }) {
-//   try {
-// // game starts via websockets
-
-//   }
-// }
+export async function startGame({
+  lobbyId,
+  options,
+}: {
+  lobbyId: string;
+  options: GameOptions;
+}) {
+  try {
+    // game starts via websockets
+  } catch (err) {
+    console.log(err);
+  }
+}
 
 export async function connectWebSocket() {
   // connect

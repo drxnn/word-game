@@ -3,12 +3,26 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { createLobby, joinLobby } from "@/services/game";
 import Lobby from "./Lobby";
-import { LobbyType, Player } from "@/lib/types";
+import {
+  LobbyType,
+  Player,
+  PlayerForLobbyType,
+  ServerToClientSchema,
+} from "@/lib/types";
 import { startWsConnection } from "@/services/ws";
 
 export default function HomePage() {
   const ws = useRef<WebSocket | null>(null);
   const [playerName, setPlayerName] = useState("");
+  // will type later
+  const [playerInfo, setPlayerInfo] = useState({
+    name: "",
+    playerId: "",
+    lobbyId: "",
+    votes: 0,
+    word: "",
+    isImposter: false,
+  });
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
   const [options, setOptions] = useState({
@@ -17,8 +31,59 @@ export default function HomePage() {
   });
   const [lobby, setLobby] = useState<LobbyType>({} as LobbyType);
 
+  //extract into custon hook later, extract logic into handlers
   useEffect(() => {
     ws.current = startWsConnection();
+
+    ws.current.addEventListener("message", (e) => {
+      console.log(`message received: ${e.data}`);
+      // theres a few types of different messages coming from the backend. Check and respond appropriately
+      const message = JSON.parse(e.data);
+      const parsed = ServerToClientSchema.safeParse(message);
+      if (!parsed.success) {
+        // sendError(ws, "data failed parsing");
+        return;
+      }
+
+      switch (parsed.data.type) {
+        case "playerJoined": {
+          // another player joined<<
+
+          const newPlayer = parsed.data.msg as PlayerForLobbyType;
+          setLobby((p) => ({
+            ...p,
+            players: [...p.players, newPlayer],
+          }));
+          break;
+        }
+        case "playerInfo": {
+          const playerInfo = parsed.data.msg;
+
+          setPlayerInfo((p) => ({
+            ...p,
+            word: playerInfo.assigned_word, // change all to camel
+            isImposter: playerInfo.isImposter,
+          }));
+          break;
+        }
+        case "playerLeft": {
+          const playerThatLeft = parsed.data.msg;
+          setLobby((p) => ({
+            ...p,
+            players: p.players.filter(
+              (player) => player.id !== playerThatLeft.playerId,
+            ),
+          }));
+          break;
+        }
+        case "playerVoted": {
+          const { playerId, targetId } = parsed.data.msg; // who voted for who
+          set;
+          break;
+        }
+      }
+    });
+    console.log(`ws is ${ws.current}`);
   }, []);
 
   const handleCreateLobby = async () => {

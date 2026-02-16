@@ -1,8 +1,8 @@
-import { ClientToServer } from "@/lib/types";
+import { ClientToServer, ServerToClientSchema } from "@/lib/types";
 
-let socket: WebSocket | null = null;
+export let socket: WebSocket | null = null;
 
-export const startWsConnection = (wsUri = "ws://127.0.0.1/") => {
+export const startWsConnection = (wsUri = "ws://localhost:4000/") => {
   socket = new WebSocket(wsUri);
 
   socket.addEventListener("open", () => {
@@ -12,6 +12,7 @@ export const startWsConnection = (wsUri = "ws://127.0.0.1/") => {
   socket.addEventListener("message", (e) => {
     console.log(`message received: ${e.data}`);
     // theres a few types of different messages coming from the backend. Check and respond appropriately
+    const message = JSON.parse(e.data);
   });
 
   socket.addEventListener("error", (event) => {
