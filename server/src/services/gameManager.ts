@@ -23,23 +23,21 @@ function generateCode(len = 6) {
 
 class _GameManager {
   async startLobby({ name, options }: CreateLobbyInput) {
-    let imposter_knows = options?.imposterKnows ?? false;
+    let imposterKnows = options?.imposterKnows ?? false;
     for (let i = 0; i < 5; i++) {
-      // try 5 times in case generated code isnt unique // good for now, will improve later
       let lobbyCode = generateCode();
       console.log(`generated lobby code is: ${lobbyCode}`);
 
       try {
-        let lobby = await lobbiesModel.createLobby(lobbyCode);
+        const lobby = await lobbiesModel.createLobby(lobbyCode);
         if (!lobby) {
-          console.log(`this is the lobby code: ${lobbyCode}`);
-
           throw new Error(
             "Something went wrong with lobby creation, try again",
           );
         }
-        await lobbiesModel.setImposterKnows(lobby.id, imposter_knows);
-        let player = await enterPlayer(name, lobby.id);
+        await lobbiesModel.setImposterKnows(lobby.id, imposterKnows);
+        const playerStart = await enterPlayer(name, lobby.id);
+        const player = await playersModel.setIsHost(playerStart.id, lobby.id);
 
         return {
           lobby,
@@ -58,15 +56,11 @@ class _GameManager {
   }
 
   async getPlayerInLobby(lobbyId: string, playerId: string) {
-    try {
-      let player = await playersModel.getPlayerInLobby(lobbyId, playerId);
-      if (!player) {
-        throw new Error("Player doesn't exist in lobby");
-      }
-      return player;
-    } catch (err) {
-      throw err;
+    let player = await playersModel.getPlayerInLobby(lobbyId, playerId);
+    if (!player) {
+      throw new Error("Player doesn't exist in lobby");
     }
+    return player;
   }
   async joinLobby({ code, name }: JoinLobbyInput) {
     let lobby = await lobbiesModel.getLobbyByCode(code);
@@ -74,9 +68,9 @@ class _GameManager {
       throw new Error("Lobby with given code not found!");
     }
     try {
-      await playersModel.enterPlayer(name, lobby.id);
+      const player = await playersModel.enterPlayer(name, lobby.id);
       const players = await playersModel.getAllPlayersInLobby(lobby.id);
-      return { players, lobby }; // maybe just players + lobby
+      return { player, players, lobby };
     } catch (err: any) {
       if (err.code === "23505")
         throw new Error("Player name already taken in this lobby"); // NAME is unique so someone else took it
@@ -85,72 +79,59 @@ class _GameManager {
   }
 
   async leaveLobby({ code, playerId }: LeaveLobbySchema) {
-    let lobbyId = await lobbiesModel.getLobbyByCode(code);
-    const lobby = await lobbiesModel.getLobbyById(lobbyId);
+    const { id } = await lobbiesModel.getLobbyByCode(code);
+    const lobby = await lobbiesModel.getLobbyById(id);
     if (!lobby) throw new Error("Lobby not found");
+    const player = await playersModel.exitPlayer(playerId, id);
 
-    try {
-      let player = await playersModel.exitPlayer(playerId, lobbyId);
-
-      let playerCount = await lobbiesModel.countLobbyPlayers(lobbyId);
-      if (playerCount === 0) {
-        await lobbiesModel.deleteLobby(lobbyId);
-      } else {
-        return player;
+    const playerCount = await lobbiesModel.countLobbyPlayers(id);
+    if (playerCount === 0) {
+      try {
+        await lobbiesModel.deleteLobby(id);
+      } catch (err) {
+        console.error("Failed to delete empty lobby:", err);
       }
-
-      // check if removed player was the host, if yes make someone else host
-    } catch (err) {
-      console.log("err"); // later
     }
+    return player;
   }
 
   async getLobby(lobbyId: string) {
     if (!lobbyId) {
       throw new Error("lobby id missing");
     }
-    try {
-      let lobby = await lobbiesModel.getLobbyById(lobbyId);
 
-      if (!lobby) {
-        throw new Error("Lobby not found");
-      }
-      return lobby;
-    } catch (err) {}
+    let lobby = await lobbiesModel.getLobbyById(lobbyId);
+
+    if (!lobby) {
+      throw new Error("Lobby not found");
+    }
+    return lobby;
   }
-
-  listLobbies() {} // dont need for now
 
   async getAllPlayers(lobbyId: string) {
     if (!lobbyId) {
       throw new Error("Something went wrong, lobby id is missing");
     }
 
-    try {
-      let players = await playersModel.getAllPlayersInLobby(lobbyId);
-      return players;
-    } catch (err) {
-      console.log(err);
-    }
+    const players = await playersModel.getAllPlayersInLobby(lobbyId);
+    return players;
   }
 
-  // use zod later
   async startGame(lobbyId: string, options?: GameOptions) {
-    // game starts when all players are in the lobby, so they get each get assigned a word, then round 1 starts
     //
-    if (!lobbyId) {
-      throw new Error("Something went wrong, lobby id is missing");
-    }
+    if (!lobbyId) throw new Error("Lobby id is required");
 
-    let imposter_knows = options?.imposterKnows ?? false;
-    try {
-      let round = await lobbiesModel.incrementVotingRound(lobbyId); // first time its called, this increments it to 1
-      await lobbiesModel.setImposterKnows(lobbyId, imposter_knows);
-      let imposter = await playersModel.assignImposter(lobbyId);
-      await playersModel.assignWordsToPlayers(lobbyId);
-    } catch (err) {
-      throw new Error("Error: Could not start game!");
-    }
+    const imposterKnows = options?.imposterKnows ?? false;
+    const round = await lobbiesModel.incrementVotingRound(lobbyId);
+    await lobbiesModel.setImposterKnows(lobbyId, imposterKnows);
+    const imposter = await playersModel.assignImposter(lobbyId);
+
+    await playersModel.assignWordsToPlayers(lobbyId);
+    return {
+      round,
+      imposter,
+      imposterKnows,
+    };
   }
 
   async castVote(lobbyId: string, voterId: string, targetId: string) {
@@ -161,17 +142,12 @@ class _GameManager {
       throw new Error("Something went wrong, could not cast vote ");
     }
 
-    try {
-      let voted_player = await playersModel.votePlayer(
-        voterId,
-        targetId,
-        lobbyId,
-      );
-
-      return voted_player;
-    } catch (err) {
-      console.log("err");
+    let votedPlayer = await playersModel.votePlayer(voterId, targetId, lobbyId);
+    if (!votedPlayer) {
+      throw new Error("Failed to cast vote");
     }
+
+    return votedPlayer;
   }
 
   async countVotes(lobbyId: string) {
@@ -179,22 +155,19 @@ class _GameManager {
       throw new Error("Something went wrong, lobby id not found");
     }
 
-    try {
-      let votes = playersModel.countVotes(lobbyId); // returns all players {id,name, is imposter,vc}
-      return votes;
-    } catch (err) {
-      console.log(err);
-    }
+    const votes = await playersModel.countVotes(lobbyId); // returns all players {id,name, is imposter,vc}
+    return votes;
   }
 
   async deleteLobby(lobbyId: string) {
     // delete
-    try {
-      let lobby = await lobbiesModel.deleteLobby(lobbyId);
-      return lobby.rows[0];
-    } catch (err) {
-      console.log("err");
+
+    const result = await lobbiesModel.deleteLobby(lobbyId);
+    if (!result.rows || result.rows.length === 0) {
+      throw new Error("Lobby not found or already deleted");
     }
+
+    return result.rows[0];
   }
 }
 

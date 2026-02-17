@@ -4,28 +4,32 @@ import { Button } from "@/components/ui/button";
 import { createLobby, joinLobby } from "@/services/game";
 import Lobby from "./Lobby";
 import {
+  ClientToServer,
+  GameOptions,
   LobbyType,
-  Player,
   PlayerForLobbyType,
   ServerToClientSchema,
 } from "@/lib/types";
-import { startWsConnection } from "@/services/ws";
+import { sendWsMessage, startWsConnection } from "@/services/ws";
+import Game from "./Game";
+import ErrorAlert from "./ErrorAlert";
 
 export default function HomePage() {
   const ws = useRef<WebSocket | null>(null);
   const [playerName, setPlayerName] = useState("");
-  // will type later
-  const [playerInfo, setPlayerInfo] = useState({
-    name: "",
-    playerId: "",
-    lobbyId: "",
-    votes: 0,
-    word: "",
-    isImposter: false,
-  });
+  const [alert, setAlert] = useState<string | null>(null);
+
+  // const [playerInfo, setPlayerInfo] = useState<Player>({
+  //   name: "",
+  //   id: "",
+  //   lobbyId: "",
+  //   isHost: false,
+  //   assignedWord: "",
+  //   isImposter: false,
+  // });
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
-  const [options, setOptions] = useState({
+  const [options, setOptions] = useState<GameOptions>({
     imposterKnows: false,
     numOfImposters: 1, // default
   });
@@ -34,17 +38,17 @@ export default function HomePage() {
   //extract into custon hook later, extract logic into handlers
   useEffect(() => {
     ws.current = startWsConnection();
-
-    ws.current.addEventListener("message", (e) => {
+    const handleMessage = (e: MessageEvent) => {
       console.log(`message received: ${e.data}`);
-      // theres a few types of different messages coming from the backend. Check and respond appropriately
-      const message = JSON.parse(e.data);
-      const parsed = ServerToClientSchema.safeParse(message);
-      if (!parsed.success) {
-        // sendError(ws, "data failed parsing");
+      let message;
+      try {
+        message = JSON.parse(e.data);
+      } catch (err) {
+        console.warn("bad json", err);
         return;
       }
-
+      const parsed = ServerToClientSchema.safeParse(message);
+      if (!parsed.success) return;
       switch (parsed.data.type) {
         case "playerJoined": {
           // another player joined<<
@@ -59,10 +63,13 @@ export default function HomePage() {
         case "playerInfo": {
           const playerInfo = parsed.data.msg;
 
-          setPlayerInfo((p) => ({
+          setLobby((p) => ({
             ...p,
-            word: playerInfo.assigned_word, // change all to camel
-            isImposter: playerInfo.isImposter,
+            player: {
+              ...p.player,
+              assigned_word: playerInfo.assignedWord,
+              isImposter: playerInfo.isImposter,
+            },
           }));
           break;
         }
@@ -77,13 +84,45 @@ export default function HomePage() {
           break;
         }
         case "playerVoted": {
-          const { playerId, targetId } = parsed.data.msg; // who voted for who
-          set;
+          const { targetId } = parsed.data.msg; // who voted for who
+
+          setLobby((p) => ({
+            ...p,
+            players: p.players.map((pl) => {
+              return pl.id === targetId
+                ? { ...pl, votes: (pl.votes += 1) }
+                : pl;
+            }),
+          }));
           break;
         }
+        case "error": {
+          setAlert(parsed.data.msg);
+        }
       }
-    });
+    };
+
     console.log(`ws is ${ws.current}`);
+    const handleClose = () => console.log("ws closed");
+    const handleError = (err: Event) => console.error("ws error", err);
+    ws.current.addEventListener("message", handleMessage);
+    ws.current.addEventListener("close", handleClose);
+    ws.current.addEventListener("error", handleError);
+
+    return () => {
+      if (!ws.current) return;
+      ws.current.removeEventListener("message", handleMessage);
+      ws.current.removeEventListener("close", handleClose);
+      ws.current.removeEventListener("error", handleError);
+
+      // Gracefully close the connection
+      try {
+        ws.current.close();
+      } catch (err) {
+        console.log(err);
+      }
+      ws.current = null;
+    };
   }, []);
 
   const handleCreateLobby = async () => {
@@ -91,11 +130,15 @@ export default function HomePage() {
       console.log(playerName);
       try {
         const result = await createLobby({ name: playerName, options });
-        setLobby({
-          lobby: result.lobby,
-          player: result.player,
-          players: [result.player],
+        setLobby((p) => {
+          return {
+            ...p,
+            lobby: result.lobby,
+            player: { ...p.player, isHost: result.player.is_host }, // fix later
+            players: [result.player],
+          };
         });
+        console.log(`player is ${lobby.player}`);
         // need to now establish a ws connection to the backend for subsequent messages
         console.log("creation was successful");
         console.log(result);
@@ -111,6 +154,26 @@ export default function HomePage() {
     }
   };
 
+  const handleLeaveLobby = () => {
+    // leave lobby, only when player exits by themselves, closing browser won't do it,
+  };
+
+  const onReadyToVote = () => {};
+  const handleStartGame = () => {
+    if (lobby.lobby.id) {
+      const messageToSend = {
+        type: "startGame",
+        msg: {
+          lobbyId: lobby.lobby.id,
+          options: options,
+        },
+      } as ClientToServer;
+
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        sendWsMessage(messageToSend, ws.current);
+      }
+    }
+  };
   const handleJoinLobby = async () => {
     // validate input klater
     if (playerName.trim() && lobbyCode.trim()) {
@@ -125,26 +188,68 @@ export default function HomePage() {
           lobby: result.lobby,
         });
 
-        // open wsConnection
+        const messageToSend = {
+          type: "joinLobby",
+          msg: {
+            lobbyId: lobby.lobby.id,
+            playerId: lobby.player.id,
+            name: lobby.player.name,
+            lobbyCode,
+          },
+        } as ClientToServer;
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          sendWsMessage(messageToSend, ws.current);
+        }
       } catch (err) {
         console.log(err);
       }
     }
   };
 
+  const handleVotePlayer = async (targetId: string) => {
+    // on vote => vote with ws
+    // get id of player you are voting for
+    const messageToSend = {
+      type: "votePlayer",
+      msg: {
+        playerId: lobby.player.id,
+        targetId,
+        lobbyId: lobby.lobby.id,
+      },
+    } as ClientToServer;
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      sendWsMessage(messageToSend, ws.current);
+    }
+  };
+
+  if (lobby?.lobby) {
+    return (
+      <Game
+        players={lobby.players}
+        currentPlayer={lobby.player}
+        isHost={lobby.player.isHost}
+        onReadyToVote={onReadyToVote}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Game Title */}
         <div className="text-center mb-12">
           <h1 className="text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
             Word Imposter
           </h1>
           <p className="text-gray-600 text-lg"></p>
         </div>
+        {alert ? <ErrorAlert message={alert} /> : null}
 
         {lobby.lobby ? (
-          <Lobby props={(lobby.lobby, lobby.player!)} />
+          <Lobby
+            lobby={lobby}
+            player={lobby.player}
+            handleStartGame={handleStartGame}
+          />
         ) : (
           <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
             <div className="space-y-6">
@@ -249,11 +354,6 @@ export default function HomePage() {
             </div>
           </Card>
         )}
-
-        {/* Footer Icon */}
-        <div className="text-center mt-8">
-          <span className="text-4xl">🕵️</span>
-        </div>
       </div>
     </div>
   );

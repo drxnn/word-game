@@ -23,6 +23,7 @@ export async function startGame(
   }
   try {
     await GameManager.startGame(parsed.data.lobbyId, parsed.data.options);
+    return res.status(200).json({ success: true });
   } catch (err) {
     next(err);
   }

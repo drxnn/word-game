@@ -6,7 +6,7 @@ imposter_word TEXT
 );
 
 
--- add a gameStatus field later
+-- add a gameStatus field later, and maybe a voting_time field (2 min)
 CREATE TABLE IF NOT EXISTS lobbies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     hostName TEXT,
@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS lobbies (
 );
 
 
+-- add a websocket_token field,
 CREATE TABLE IF NOT EXISTS players (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT UNIQUE NOT NULL,

@@ -7,7 +7,7 @@ import {
   getLobbySchema,
   deleteLobbySchema,
 } from "../schemas/gameSchema";
-import { z } from "zod";
+import { success, z } from "zod";
 import { getLobbyByCode } from "../db/models/lobbies";
 
 /**
@@ -21,6 +21,7 @@ export async function createLobby(
   try {
     // ws token generated
     console.log("we are here");
+    console.log(`req body is: ${req.body}`);
     const { name, options } = req.body;
     // generate a websocket token for authentication later on
 
@@ -33,8 +34,8 @@ export async function createLobby(
     console.log("options type:", typeof options);
     console.log("parsed.data is: ", parsed.data);
 
-    const lobby = await GameManager.startLobby(parsed.data);
-    return res.status(201).json({ lobby });
+    const { lobby, player } = await GameManager.startLobby(parsed.data);
+    return res.status(201).json({ lobby, player });
   } catch (err) {
     next(err);
   }
@@ -49,10 +50,10 @@ export async function joinLobby(
   next: NextFunction,
 ) {
   try {
-    // dont forget ws token
+    // dont forget ws token, generate and send for subsequent comms
     const { code } = req.params;
     const { name } = req.body;
-    let parsed = joinLobbySchema.safeParse({ name, code });
+    const parsed = joinLobbySchema.safeParse({ name, code });
     if (!parsed.success) {
       const prettyError = z.prettifyError(parsed.error);
       return res.status(400).send(prettyError);
@@ -86,7 +87,8 @@ export async function leaveLobby(
     }
 
     await GameManager.leaveLobby(parsed.data);
-    return res.json({ ok: true });
+
+    return res.status(200).send({ success: true });
   } catch (err) {
     next(err);
   }
@@ -102,7 +104,7 @@ export async function getLobby(
   next: NextFunction,
 ) {
   const { code } = req.params;
-  let parsed = getLobbySchema.safeParse(code);
+  let parsed = getLobbySchema.safeParse({ code });
 
   if (!parsed.success) {
     const prettyError = z.prettifyError(parsed.error);
@@ -132,7 +134,7 @@ export async function deleteLobby(
   try {
     let lobby = await GameManager.deleteLobby(parsed.data.id);
 
-    res.json({ lobby });
+    return res.status(204).send({ lobby });
   } catch (err) {
     next(err);
   }

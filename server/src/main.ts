@@ -9,8 +9,9 @@ import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler } from "./middlewares/errorHandler";
 import { pool } from "./db";
 
-const app = express();
+export const app = express();
 export const server = http.createServer(app);
+import "./ws/ws.server";
 
 app.use(cors());
 app.use(express.json());
@@ -20,6 +21,9 @@ app.use(requestLogger);
 
 app.use("/api", apiRouter);
 
+app.use((request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+});
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;

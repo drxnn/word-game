@@ -9,7 +9,7 @@ export async function createLobby({
   options,
 }: {
   name: string;
-  options: { imposterKnows: boolean; numOfImposters: number };
+  options: GameOptions;
 }) {
   // post req
   try {
@@ -42,21 +42,3 @@ export async function joinLobby({ name, code }: JoinLobbyInput) {
     console.log(err);
   }
 }
-export async function startGame({
-  lobbyId,
-  options,
-}: {
-  lobbyId: string;
-  options: GameOptions;
-}) {
-  try {
-    // game starts via websockets
-  } catch (err) {
-    console.log(err);
-  }
-}
-
-export async function connectWebSocket() {
-  // connect
-}
-//ws

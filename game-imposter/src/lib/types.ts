@@ -4,10 +4,10 @@ import { z } from "zod";
 export const PlayerSchema = z.object({
   id: z.uuid(),
   name: z.string().min(2).max(20).trim(),
-  lobby_id: z.uuid(),
+  lobbyId: z.uuid(),
   isImposter: z.boolean(),
-  is_host: z.boolean(),
-  assigned_word: z.string().max(50).trim(),
+  isHost: z.boolean(),
+  assignedWord: z.string().max(50).trim(),
 });
 
 export const LobbySchema = z.object({
@@ -17,15 +17,15 @@ export const LobbySchema = z.object({
     .length(6)
     .regex(/^[A-Z0-9]+$/),
   hostName: z.string().trim().min(2).max(20),
-  imposter_knows: z.boolean(),
-  voting_round: z.number().min(0),
+  imposterKnows: z.boolean(),
+  votingRound: z.number().min(0),
   createdAt: z.string().optional(),
-  word_pair_id: z.uuid(),
+  wordPairId: z.uuid(),
 });
 
 export const gameOptionsSchema = z.object({
   imposterKnows: z.boolean().optional(),
-  num_of_imposters: z
+  numOfImposters: z
     .preprocess(
       (val) => (val === null ? undefined : val),
       z.union([z.literal(1), z.literal(2), z.literal(3)]),
@@ -73,9 +73,9 @@ export const voteSchema = z.object({
 
 export const playerForLobbySchema = PlayerSchema.pick({
   name: true,
-  lobby_id: true,
+  lobbyId: true,
   id: true,
-});
+}).extend({ votes: z.number() });
 
 export const endGameSchema = z.object({
   lobbyId: z.uuid(),
@@ -126,9 +126,9 @@ export const ServerToClientMapSchema = z.object({
   }),
   playerInfo: PlayerSchema.pick({
     name: true,
-    is_host: true,
+    isHost: true,
     isImposter: true,
-    assigned_word: true,
+    assignedWord: true,
   }),
   playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }),
   startGameInfo: z.array(PlayerSchema),

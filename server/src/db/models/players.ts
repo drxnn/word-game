@@ -29,6 +29,26 @@ export async function exitPlayer(player_id: string, lobbyId: string) {
 
   return result.rows[0];
 }
+export async function setIsHost(player_id: string, lobbyId: string) {
+  if (!player_id) throw new Error("Player ID is required");
+  if (!lobbyId) throw new Error("Lobby ID is required");
+
+  const result = await pool.query(
+    `
+      UPDATE players
+      SET is_host = true
+      WHERE id = $1 AND lobby_id = $2
+      RETURNING *
+    `,
+    [player_id, lobbyId],
+  );
+
+  if (result.rowCount === 0) {
+    throw new Error("Player not found in that lobby");
+  }
+
+  return result.rows[0];
+}
 
 export async function votePlayer(
   playerId: string,
@@ -41,6 +61,8 @@ export async function votePlayer(
   if (playerId === playerToVoteId) throw new Error("Cannot vote for yourself");
 
   let voting_round = await getRoundFromLobby(lobbyId);
+
+  //what if player sends 3 requests at the same time
 
   const result = await pool.query(
     `INSERT INTO votes (player_id, voted_for_player_id, lobby_id, voting_round)
@@ -58,15 +80,15 @@ export async function assignImposter(lobbyId: string, num: number = 1) {
     UPDATE players 
     SET is_imposter = true
     WHERE id = (
-     SELECT id FROM players ORDER BY random() LIMIT 1
-    )
+     SELECT id FROM players WHERE lobby_id = $1 ORDER BY random() LIMIT 1
+    ) 
    RETURNING *
     
     `,
     [lobbyId],
   );
 
-  result.rows[0];
+  return result.rows;
 }
 
 export async function countVotes(lobbyId: string) {
