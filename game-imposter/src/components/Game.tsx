@@ -65,7 +65,7 @@ export default function Game({
                   className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                     player.id === currentPlayer.id
                       ? "bg-indigo-100 border-2 border-indigo-400"
-                      : "bg-slate-50 border-2 border-transparent"
+                      : "bg-slate-50 border-2 border-transparent" // this gets applied to 2 players even though they are unique
                   }`}
                 >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">

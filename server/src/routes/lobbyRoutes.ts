@@ -16,7 +16,7 @@ router.delete("/delete/:id", lobbyController.deleteLobby);
  * POST /api/lobby/:code/join
  * body:\
  */
-router.post("/:code/join", lobbyController.joinLobby);
+router.post("/join", lobbyController.joinLobby);
 
 /**
  * GET /api/lobby/:code

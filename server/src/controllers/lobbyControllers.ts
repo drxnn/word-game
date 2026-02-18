@@ -51,18 +51,19 @@ export async function joinLobby(
 ) {
   try {
     // dont forget ws token, generate and send for subsequent comms
-    const { code } = req.params;
-    const { name } = req.body;
+
+    const { name, code } = req.body;
+    console.log(`name is ${name}, code to join is ${code}`);
     const parsed = joinLobbySchema.safeParse({ name, code });
     if (!parsed.success) {
       const prettyError = z.prettifyError(parsed.error);
       return res.status(400).send(prettyError);
     }
 
-    const lobbyPlayers = await GameManager.joinLobby(parsed.data);
+    const { player, players, lobby } = await GameManager.joinLobby(parsed.data);
     console.log("we are here, after the call to joinLobby");
 
-    return res.status(200).json({ lobbyPlayers });
+    return res.status(200).json({ player, players, lobby });
   } catch (err) {
     next(err);
   }

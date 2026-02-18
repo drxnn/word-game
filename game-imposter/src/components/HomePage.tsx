@@ -13,16 +13,22 @@ import {
 } from "@/lib/types";
 import { sendWsMessage, startWsConnection } from "@/services/ws";
 import Game from "./Game";
-import ErrorAlert from "./ErrorAlert";
+import ErrorAlert from "./NotificationAlert";
+
+type AlertState = {
+  type: "error" | "success" | "info";
+  message: string;
+  title?: string;
+} | null;
 
 export default function HomePage() {
   const ws = useRef<WebSocket | null>(null);
   const [playerName, setPlayerName] = useState("");
-  const [alert, setAlert] = useState<string | null>(null);
+
   const [votesCounted, setVotesCounted] = useState(false);
   const [voted, setVoted] = useState(false);
   const [voting, setVoting] = useState(false);
-
+  const [notificationAlert, setNotificationAlert] = useState<AlertState>(null);
   const [gameOver, setGameOver] = useState(false);
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
@@ -44,6 +50,16 @@ export default function HomePage() {
   }, [votesCounted]);
 
   //extract into custon hook later, extract logic into handlers
+
+  useEffect(() => {
+    if (notificationAlert) {
+      const timer = setTimeout(() => {
+        setNotificationAlert(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notificationAlert]);
+
   useEffect(() => {
     console.log(`lobby is : ${lobby}`);
     ws.current = startWsConnection();
@@ -61,11 +77,12 @@ export default function HomePage() {
       switch (parsed.data.type) {
         case "playerJoined": {
           // another player joined<<
+          console.log(`player that joined is ${parsed.data.msg.name}`);
 
           const newPlayer = parsed.data.msg as PlayerForLobbyType;
           setLobby((p) => ({
             ...p,
-            players: [...p.players, newPlayer],
+            players: [...p.players, { ...newPlayer, votes: 0 }],
           }));
           break;
         }
@@ -74,6 +91,7 @@ export default function HomePage() {
 
           setLobby((p) => ({
             ...p,
+            lobby: { ...p.lobby, gameStarted: true },
             player: {
               ...p.player,
               assigned_word: playerInfo.assignedWord,
@@ -98,9 +116,7 @@ export default function HomePage() {
           setLobby((p) => ({
             ...p,
             players: p.players.map((pl) => {
-              return pl.id === targetId
-                ? { ...pl, votes: (pl.votes += 1) }
-                : pl;
+              return pl.id === targetId ? { ...pl, votes: pl.votes + 1 } : pl;
             }),
           }));
           break;
@@ -127,20 +143,56 @@ export default function HomePage() {
         }
         case "playerVotedOut": {
           // someone got voted out
-          const { playerId, isImposter, name } = parsed.data.msg;
-          if (playerId && name) {
-            playerVotedOut(playerId, isImposter, name);
+          const { playerId } = parsed.data.msg;
+          if (playerId) {
+            setLobby((p) => ({
+              ...p,
+              players: p.players.filter((x) => x.id !== playerId),
+            }));
           }
 
           break;
         }
         case "nobodyVotedOut": {
-          setAlert("Nobody received enough votes to be voted out!");
+          setNotificationAlert({
+            type: "info",
+            message: "Nobody received enough votes to be voted out!",
+          });
+          break;
+        }
+        case "gameOver": {
+          const { lastPlayerToBeVotedOutId, winner } = parsed.data.msg;
 
+          let votedOutPlayerName: string | undefined;
+          setLobby((p) => {
+            votedOutPlayerName = p.players.find(
+              (x) => x.id === lastPlayerToBeVotedOutId,
+            )?.name;
+            return {
+              ...p,
+              players: p.players.filter(
+                (x) => x.id !== lastPlayerToBeVotedOutId,
+              ),
+            };
+          });
+          if (winner === "allies") {
+            setNotificationAlert({
+              type: "info",
+              message: `${votedOutPlayerName} got voted out! The winners are the allies! `,
+            });
+          } else {
+            setNotificationAlert({
+              type: "info",
+              message: `${votedOutPlayerName} got voted out! The imposter won! `,
+            });
+          }
+
+          setGameOver(true);
+          // reset state of lobby after 2 seconds. (show players exit to lobby button)
           break;
         }
         case "error": {
-          setAlert(parsed.data.msg);
+          setNotificationAlert({ type: "error", message: "parsed.data.msg" });
         }
       }
     };
@@ -167,50 +219,6 @@ export default function HomePage() {
     };
   }, []);
 
-  const playerVotedOut = (
-    playerId: string,
-    isImposter: boolean,
-    name: string,
-  ) => {
-    if (isImposter) {
-      // call gameEnd function
-      //alert that imposter got voted out, clear out game data, display lobby
-
-      setGameOver(true);
-      setAlert("The imposter won!"); // will show for 3 seconds then disappear
-
-      setTimeout(() => {
-        setLobby((p) => ({
-          ...p,
-          lobby: { ...p.lobby, gameStarted: false },
-        }));
-      }, 2000);
-
-      const messageToSend = {
-        type: "gameOver",
-        msg: {},
-      };
-
-      if (ws.current?.readyState === WebSocket.OPEN) {
-        // sendWsMessage(messageToSend, ws.current);
-      }
-
-      //
-    } else {
-      // player was not imposter, kick player out, refresh state
-      setAlert(`${name} was not the imposter!`);
-      setLobby((p) => ({
-        ...p,
-        players: p.players
-          .filter((x) => x.id != playerId) // remove player that got kicked out first
-          .map((x) => {
-            x.votes = 0;
-            return x;
-          }),
-      }));
-    }
-  };
-
   const handleCreateLobby = async () => {
     if (playerName.trim()) {
       console.log(playerName);
@@ -220,10 +228,24 @@ export default function HomePage() {
           return {
             ...p,
             lobby: result.lobby,
-            player: { ...p.player, isHost: result.player?.is_host }, // fix later camel to camel case consistent
+            player: { ...result.player, isHost: result.player?.is_host }, // fix later camel to camel case consistent
             players: [result.player],
           };
         });
+        const messageToSend = {
+          type: "joinLobby",
+          msg: {
+            lobbyId: result.lobby.id,
+            playerId: result.player.id,
+            name: result.player.name,
+            lobbyCode: result.lobby.code,
+          },
+        } as ClientToServer;
+
+        if (ws.current?.readyState === WebSocket.OPEN) {
+          sendWsMessage(messageToSend, ws.current);
+        }
+
         console.log(`player is ${lobby.player}`);
         // need to now establish a ws connection to the backend for subsequent messages
         console.log("creation was successful");
@@ -279,9 +301,9 @@ export default function HomePage() {
         const messageToSend = {
           type: "joinLobby",
           msg: {
-            lobbyId: lobby.lobby.id,
-            playerId: lobby.player.id,
-            name: lobby.player.name,
+            lobbyId: result.lobby.id,
+            playerId: result.player.id,
+            name: result.player.name,
             lobbyCode,
           },
         } as ClientToServer;
@@ -341,7 +363,7 @@ export default function HomePage() {
           </h1>
           <p className="text-gray-600 text-lg"></p>
         </div>
-        {alert ? <ErrorAlert message={alert} /> : null}
+        {notificationAlert ? <ErrorAlert alert={notificationAlert} /> : null}
 
         {lobby.lobby ? (
           <Lobby

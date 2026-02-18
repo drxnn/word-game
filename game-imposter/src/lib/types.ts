@@ -116,24 +116,28 @@ export const ServerToClientMapSchema = z.object({
     playerId: true,
     lobbyId: true,
   }),
-  playerLeft: ClientInfoSchema.pick({
-    name: true,
-    playerId: true,
-    lobbyId: true,
-  }),
-  playerVoted: ClientInfoSchema.pick({
-    name: true,
-    playerId: true,
-    targetId: true,
-  }),
   playerInfo: PlayerSchema.pick({
     name: true,
     isHost: true,
     isImposter: true,
     assignedWord: true,
   }),
-  nobodyVotedOut: ClientInfoSchema.pick({
+  nobodyVotedOut: ClientInfoSchema.pick({ lobbyId: true }),
+  playerLeft: ClientInfoSchema.pick({
+    name: true,
+    playerId: true,
     lobbyId: true,
+  }),
+  gameOver: ClientInfoSchema.pick({
+    lobbyId: true,
+  }).extend({
+    lastPlayerToBeVotedOutId: z.uuid(),
+    winner: z.union([z.literal("imposter"), z.literal("allies")]),
+  }),
+  playerVoted: ClientInfoSchema.pick({
+    name: true,
+    playerId: true,
+    targetId: true,
   }),
   playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }).extend({
     isImposter: z.boolean(),
@@ -145,8 +149,8 @@ export const ServerToClientMapSchema = z.object({
       z.object({
         id: z.string(),
         name: z.string(),
-        is_imposter: z.boolean(),
-        vote_count: z.string(),
+        isImposter: z.boolean(),
+        voteCount: z.string(),
       }),
     ),
   }),
@@ -207,20 +211,32 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
     msg: ServerToClientMapSchema.shape.lobbyCreated,
   }),
   z.object({
-    type: z.literal("playerJoined"),
-    msg: ServerToClientMapSchema.shape.playerJoined,
+    type: z.literal("playerInfo"),
+    msg: ServerToClientMapSchema.shape.playerInfo,
+  }),
+  z.object({
+    type: z.literal("gameOver"),
+    msg: ServerToClientMapSchema.shape.gameOver,
+  }),
+  z.object({
+    type: z.literal("imposterVotedOut"),
+    msg: ServerToClientMapSchema.shape.playerVotedOut,
   }),
   z.object({
     type: z.literal("nobodyVotedOut"),
     msg: ServerToClientMapSchema.shape.nobodyVotedOut,
   }),
   z.object({
-    type: z.literal("playerLeft"),
-    msg: ServerToClientMapSchema.shape.playerLeft,
+    type: z.literal("countVotes"),
+    msg: ServerToClientMapSchema.shape.votesCounted,
   }),
   z.object({
-    type: z.literal("playerInfo"),
-    msg: ServerToClientMapSchema.shape.playerInfo,
+    type: z.literal("playerJoined"),
+    msg: ServerToClientMapSchema.shape.playerJoined,
+  }),
+  z.object({
+    type: z.literal("playerLeft"),
+    msg: ServerToClientMapSchema.shape.playerLeft,
   }),
   z.object({
     type: z.literal("playerVoted"),

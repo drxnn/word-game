@@ -3,10 +3,10 @@ import { z } from "zod";
 export const PlayerSchema = z.object({
   id: z.uuid(),
   name: z.string().min(2).max(20).trim(),
-  lobby_id: z.uuid(),
-  is_imposter: z.boolean(),
-  is_host: z.boolean(),
-  assigned_word: z.string().max(50).trim(),
+  lobbyId: z.uuid(),
+  isImposter: z.boolean(),
+  isHost: z.boolean(),
+  assignedWord: z.string().max(50).trim(),
   votes: z.number(),
 });
 
@@ -17,21 +17,22 @@ export const LobbySchema = z.object({
     .length(6)
     .regex(/^[A-Z0-9]+$/),
   hostName: z.string().trim().min(2).max(20),
-  imposter_knows: z.boolean(),
-  voting_round: z.number().min(0),
+  imposterKnows: z.boolean(),
+  votingRound: z.number().min(0),
   createdAt: z.string().optional(),
-  word_pair_id: z.uuid(),
+  wordPairId: z.uuid(),
 });
 
 export const gameOptionsSchema = z.object({
   imposterKnows: z.boolean().optional(),
-  num_of_imposters: z
+  numOfImposters: z
     .preprocess(
       (val) => (val === null ? undefined : val),
       z.union([z.literal(1), z.literal(2), z.literal(3)]),
     )
     .default(1),
 });
+
 export const ClientInfoSchema = z.object({
   playerId: z.uuid().optional(),
   lobbyId: z.uuid().optional(),
@@ -46,7 +47,9 @@ export const ClientInfoSchema = z.object({
     .optional(),
   options: gameOptionsSchema.optional(),
 });
+
 export type ClientInfo = z.infer<typeof ClientInfoSchema>;
+
 export const createLobbySchema = z.object({
   name: z.string().trim().min(2).max(20),
   options: gameOptionsSchema,
@@ -81,6 +84,7 @@ export const joinLobbySchema = createLobbySchema.pick({ name: true }).extend({
     .regex(/^[A-Z0-9]+$/)
     .length(6),
 });
+
 export const getLobbySchema = joinLobbySchema.pick({ code: true });
 
 export const leaveLobbySchema = joinLobbySchema.pick({ code: true }).extend({
@@ -93,26 +97,23 @@ export const WordPairSchema = z.object({
   imposter: z.string().trim().min(2).max(50),
 });
 
-// export const VoteResultSchema = z.object({
-//   finished: z.boolean(),
-//   success: z.boolean(),
-//   tally: z.record(z.string(), z.number()),
-// });
-
-// export type VoteResult = z.infer<typeof VoteResultSchema>;
-
 export const ServerToClientMapSchema = z.object({
   lobbyCreated: z.object({ lobbyId: z.uuid() }),
   playerJoined: ClientInfoSchema.pick({
     name: true,
-    playerId: true,
     lobbyId: true,
-  }),
+  }).extend({ id: z.uuid() }),
   nobodyVotedOut: ClientInfoSchema.pick({ lobbyId: true }),
   playerLeft: ClientInfoSchema.pick({
     name: true,
     playerId: true,
     lobbyId: true,
+  }),
+  gameOver: ClientInfoSchema.pick({
+    lobbyId: true,
+  }).extend({
+    lastPlayerToBeVotedOutId: z.uuid(),
+    winner: z.union([z.literal("imposter"), z.literal("allies")]),
   }),
   playerVoted: ClientInfoSchema.pick({
     name: true,
@@ -129,12 +130,11 @@ export const ServerToClientMapSchema = z.object({
       z.object({
         id: z.string(),
         name: z.string(),
-        is_imposter: z.boolean(),
-        vote_count: z.string(),
+        isImposter: z.boolean(),
+        voteCount: z.string(),
       }),
     ),
   }),
-
   roundEnded: z.array(PlayerSchema),
   gameStarted: z.array(PlayerSchema),
   endLobby: z.array(PlayerSchema),
@@ -191,6 +191,14 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
     msg: ServerToClientMapSchema.shape.lobbyCreated,
   }),
   z.object({
+    type: z.literal("gameOver"),
+    msg: ServerToClientMapSchema.shape.gameOver,
+  }),
+  z.object({
+    type: z.literal("imposterVotedOut"),
+    msg: ServerToClientMapSchema.shape.playerVotedOut,
+  }),
+  z.object({
     type: z.literal("playerVotedOut"),
     msg: ServerToClientMapSchema.shape.playerVotedOut,
   }),
@@ -213,10 +221,6 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerVoted"),
     msg: ServerToClientMapSchema.shape.playerVoted,
-  }),
-  z.object({
-    type: z.literal("playerVotedOut"),
-    msg: ServerToClientMapSchema.shape.playerVotedOut,
   }),
   z.object({
     type: z.literal("startGameInfo"),
@@ -244,7 +248,6 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-// data that comes from the client ws
 export const ClientToServerSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -292,20 +295,14 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
 
 export type ServerToClientMap = z.infer<typeof ServerToClientMapSchema>;
 export type ClientToServerMap = z.infer<typeof ClientToServerMapSchema>;
-
 export type ClientToServer = z.infer<typeof ClientToServerSchema>;
 export type ServerToClient = z.infer<typeof ServerToClientSchema>;
-
 export type Lobby = z.infer<typeof LobbySchema>;
 export type Player = z.infer<typeof PlayerSchema>;
-
 export type GetLobbySchema = z.infer<typeof getLobbySchema>;
 export type LeaveLobbySchema = z.infer<typeof leaveLobbySchema>;
-
 export type JoinLobbyInput = z.infer<typeof joinLobbySchema>;
-
 export type CreateLobbyInput = z.infer<typeof createLobbySchema>;
 export type GameOptions = z.infer<typeof gameOptionsSchema>;
-
 export type DeleteLobbySchema = z.infer<typeof deleteLobbySchema>;
 export type WordPair = z.infer<typeof WordPairSchema>;

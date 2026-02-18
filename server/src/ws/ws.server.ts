@@ -1,13 +1,11 @@
-import WebSocket, { WebSocketServer, type VerifyClientCallbackSync } from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 import { server } from "../main";
-
 import { GameManager } from "../services/gameManager";
 import {
   ClientInfo,
   ClientToServerSchema,
   ServerToClient,
 } from "../schemas/gameSchema";
-
 import {
   addSocketToLobby,
   addToClientInfo,
@@ -33,9 +31,7 @@ const wss = new WebSocketServer({
 });
 
 wss.on("connection", (ws, req) => {
-  // add authentication later, have the db create a wsToken when a player creates a lobby or joins a lobby
-  console.log("conneted to ws successfully");
-
+  console.log("connected to ws successfully");
   const clientId = crypto.randomUUID();
   socketToClient.set(ws, { clientId });
 
@@ -45,17 +41,15 @@ wss.on("connection", (ws, req) => {
 
   ws.on("message", async function message(data, isBinary) {
     console.log("received: %s", data);
-
     let raw = parseWsMessage(data);
     if (!raw.ok) {
       sendError(ws, raw.error);
       return;
     }
-    const parsed = ClientToServerSchema.safeParse(raw.value);
-    console.log(`parsed message looks like : ${parsed}`);
 
+    const parsed = ClientToServerSchema.safeParse(raw.value);
     if (!parsed.success) {
-      sendError(ws, "data failed parsing");
+      console.log("schema parse failed:", parsed.error.issues);
       return;
     }
 
@@ -64,6 +58,16 @@ wss.on("connection", (ws, req) => {
     try {
       switch (parsed.data.type) {
         case "joinLobby": {
+          console.log(
+            "lobbyId value:",
+            parsed.data.msg.lobbyId,
+            "type:",
+            typeof parsed.data.msg.lobbyId,
+          );
+          console.log(
+            "current lobbyToSockets keys:",
+            [...lobbyToSockets.keys()].map((k) => `${k} (${typeof k})`),
+          );
           clientInfo = addToClientInfo(
             ws,
             {
@@ -73,27 +77,30 @@ wss.on("connection", (ws, req) => {
             },
             clientId,
           );
-
           if (!clientInfo.lobbyId) {
             if (ws.readyState === WebSocket.OPEN)
               sendError(ws, "missing lobby id");
             break;
           }
-
           addSocketToLobby(clientInfo.lobbyId, ws);
-
-          // the database state has already been changed in this case by the route handler
-          broadCastToLobby(clientInfo.lobbyId, {
-            type: "playerJoined",
-            msg: {
-              lobbyId: clientInfo.lobbyId,
-              playerId: clientInfo.playerId,
-              name: clientInfo.name,
-            }, // so everyone connected receives the new player
+          const sockets = lobbyToSockets.get(clientInfo.lobbyId);
+          sockets?.forEach((s) => {
+            if (s !== ws && s.readyState === WebSocket.OPEN) {
+              s.send(
+                JSON.stringify({
+                  type: "playerJoined",
+                  msg: {
+                    lobbyId: clientInfo.lobbyId,
+                    id: clientInfo.playerId!,
+                    name: clientInfo.name,
+                  },
+                }),
+              );
+            }
           });
-
           break;
         }
+
         case "leaveLobby": {
           clientInfo = addToClientInfo(
             ws,
@@ -101,25 +108,21 @@ wss.on("connection", (ws, req) => {
             clientId,
           );
           if (!clientInfo.lobbyId || !clientInfo.playerId) {
-            sendError(ws, "missing required info ");
+            sendError(ws, "missing required info");
             break;
           }
-
           if (typeof clientInfo.code !== "string") break;
-
           try {
             await GameManager.leaveLobby({
               code: clientInfo.code,
               playerId: clientInfo.playerId,
             });
             removeSocketFromLobby(clientInfo.lobbyId, ws);
-
             socketToClient.delete(ws);
           } catch (err) {
             sendError(ws, "leaving lobby failed");
             break;
           }
-
           broadCastToLobby(clientInfo.lobbyId, {
             type: "playerLeft",
             msg: {
@@ -130,6 +133,7 @@ wss.on("connection", (ws, req) => {
           });
           break;
         }
+
         case "votePlayer": {
           clientInfo = addToClientInfo(
             ws,
@@ -140,7 +144,6 @@ wss.on("connection", (ws, req) => {
             sendError(ws, "missing lobby id");
             break;
           }
-
           const { lobbyId, playerId, targetId } = clientInfo;
           if (!lobbyId || !playerId || !targetId) {
             sendError(ws, "info required to cast action is missing");
@@ -152,41 +155,67 @@ wss.on("connection", (ws, req) => {
             sendError(ws, "vote_cast_failed");
             break;
           }
-          const lobby = await GameManager.getLobby(lobbyId); // make a specific get voting_round fn
+
+          const lobby = await GameManager.getLobby(lobbyId);
           const allVoted = await GameManager.haveAllPlayersVoted(
             lobbyId,
-            lobby.voting_round,
-          ); // new check
+            lobby.votingRound,
+          );
 
           if (allVoted) {
             await GameManager.incrementVotingRound(lobbyId);
             const results = await GameManager.countVotes(lobbyId);
-
             broadCastToLobby(lobbyId, {
               type: "votesCounted",
               msg: { lobbyId, votes: results },
             });
 
-            await new Promise((resolve) => setTimeout(resolve, 3000)); // wait 3 sec then send who got voted out
             const sorted = [...results].sort(
-              (a, b) => +b.vote_count - +a.vote_count,
+              (a, b) => +b.voteCount - +a.voteCount,
             );
+            const numOfPlayersLeft =
+              await GameManager.playersLeftInGame(lobbyId);
             const top = sorted[0];
             const second = sorted[1];
             const hasMajority =
-              top && (!second || +top.vote_count > +second.vote_count);
+              top && (!second || +top.voteCount > +second.voteCount);
 
             if (hasMajority) {
               await GameManager.playerVotedOut(top.id, lobbyId);
-              broadCastToLobby(lobbyId, {
-                type: "playerVotedOut",
-                msg: { playerId: top.id, isImposter: top.isImposter },
-              });
+              if (top.isImposter) {
+                broadCastToLobby(lobbyId, {
+                  type: "gameOver",
+                  msg: {
+                    lastPlayerToBeVotedOutId: top.id,
+                    lobbyId,
+                    winner: "allies",
+                  },
+                });
+                await GameManager.resetLobbyVotingRound(lobbyId);
+                break;
+              } else {
+                if (numOfPlayersLeft < 3) {
+                  const winner = top.isImposter ? "allies" : "imposter";
+                  broadCastToLobby(lobbyId, {
+                    type: "gameOver",
+                    msg: { lastPlayerToBeVotedOutId: top.id, lobbyId, winner },
+                  });
+                  await GameManager.resetLobbyVotingRound(lobbyId);
+                  break;
+                } else {
+                  broadCastToLobby(lobbyId, {
+                    type: "playerVotedOut",
+                    msg: { playerId: top.id, isImposter: top.isImposter },
+                  });
+                  break;
+                }
+              }
             } else {
               broadCastToLobby(lobbyId, {
                 type: "nobodyVotedOut",
                 msg: { lobbyId },
               });
+              break;
             }
           } else {
             broadCastToLobby(lobbyId, {
@@ -194,9 +223,9 @@ wss.on("connection", (ws, req) => {
               msg: { playerId, targetId },
             });
           }
-
           break;
         }
+
         case "startGame": {
           clientInfo = addToClientInfo(
             ws,
@@ -212,11 +241,8 @@ wss.on("connection", (ws, req) => {
             sendError(ws, "players array is empty");
             break;
           }
-
           try {
             await GameManager.startGame(clientInfo.lobbyId, clientInfo.options);
-            // everyone has words assigned to them
-
             const sockets = lobbyToSockets.get(clientInfo.lobbyId);
             if (sockets) {
               for (const s of sockets) {
@@ -228,9 +254,9 @@ wss.on("connection", (ws, req) => {
                     JSON.stringify({
                       type: "playerInfo",
                       msg: {
-                        word: player.assigned_word,
-                        isImposter: player.is_imposter,
-                        lobbyId: player.lobby_id,
+                        assignedWord: player.assignedWord,
+                        isImposter: player.isImposter,
+                        lobbyId: player.lobbyId,
                       },
                     }),
                   );
@@ -240,9 +266,9 @@ wss.on("connection", (ws, req) => {
           } catch (err) {
             sendError(ws, "start_game_failed");
           }
-
           break;
         }
+
         case "createLobby": {
           clientInfo = addToClientInfo(
             ws,
@@ -258,38 +284,16 @@ wss.on("connection", (ws, req) => {
             sendError(ws, "missing_lobbyId_for_create");
             break;
           }
-
           let set: Set<WebSocket> = new Set();
           set.add(ws);
           lobbyToSockets.set(clientInfo.lobbyId, set);
-
           break;
         }
-        // case "voteCount": {
-        //   if (!clientInfo.lobbyId) {
-        //     sendError(ws, "missing_lobbyId");
-        //     break;
-        //   }
-        //   let votes = await GameManager.countVotes(clientInfo.lobbyId);
-        //   if (!votes) {
-        //     sendError(ws, "votes array is empty");
-        //     break;
-        //   }
 
-        //   broadCastToLobby(clientInfo.lobbyId, {
-        //     type: "votesCounted",
-        //     msg: votes,
-        //   });e
-        //   break;
-        // }
-        // case "endLobby": {
-        //   // host can end lobby or if everyone leaves
-        // }
-        default:
-          {
-            sendError(ws, "default error, something went wrong");
-          }
+        default: {
+          sendError(ws, "default error, something went wrong");
           break;
+        }
       }
     } catch (err) {
       console.error("Unhandled error in message handler:", err);
@@ -299,33 +303,37 @@ wss.on("connection", (ws, req) => {
 
   ws.on("close", async () => {
     const clientInfo = socketToClient.get(ws);
+    socketToClient.delete(ws);
 
-    if (!clientInfo || !clientInfo.lobbyId) {
-      return;
+    if (clientInfo?.lobbyId) {
+      const set = lobbyToSockets.get(clientInfo.lobbyId);
+      if (set) {
+        set.delete(ws);
+        if (set.size === 0) {
+          lobbyToSockets.delete(clientInfo.lobbyId);
+        }
+      }
     }
 
-    if (clientInfo.code && clientInfo.playerId) {
-      try {
-        const player = await GameManager.getPlayerInLobby(
-          clientInfo.lobbyId,
-          clientInfo.playerId,
-        );
-        if (!player) return; // player has already left the lobby
+    if (clientInfo?.code && clientInfo?.playerId && clientInfo?.lobbyId) {
+      const player = await GameManager.getPlayerInLobby(
+        clientInfo.lobbyId,
+        clientInfo.playerId,
+      );
+      if (!player) return;
 
+      try {
         await GameManager.leaveLobby({
           code: clientInfo.code,
           playerId: clientInfo.playerId,
         });
-
+      } catch (err) {
+        console.error("Failed to remove player from lobby on disconnect:", err);
+      } finally {
         broadCastToLobby(clientInfo.lobbyId, {
           type: "playerLeft",
           msg: { playerId: clientInfo.playerId },
         });
-      } catch (err) {
-        console.log(err);
-      } finally {
-        socketToClient.delete(ws);
-        lobbyToSockets.get(clientInfo.lobbyId)?.delete(ws);
       }
     }
 

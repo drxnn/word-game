@@ -31,12 +31,15 @@ class _GameManager {
             "Something went wrong with lobby creation, try again",
           );
         }
-        await lobbiesModel.setImposterKnows(lobby.id, imposterKnows);
+        const updatedLobby = await lobbiesModel.setImposterKnows(
+          lobby.id,
+          imposterKnows,
+        );
         const playerStart = await enterPlayer(name, lobby.id);
         const player = await playersModel.setIsHost(playerStart.id, lobby.id);
 
         return {
-          lobby,
+          lobby: updatedLobby,
           player,
         };
       } catch (err: any) {
@@ -177,13 +180,28 @@ class _GameManager {
     const result = await playersModel.playerVotedOut(lobbyId, playerId);
     return result;
   }
-  async haveAllPlayersVoted(lobbyId: string, voting_round: number) {
-    const result = await lobbiesModel.haveAllPlayersVoted(
-      lobbyId,
-      voting_round,
-    );
+  async haveAllPlayersVoted(lobbyId: string, votingRound: number) {
+    const result = await lobbiesModel.haveAllPlayersVoted(lobbyId, votingRound);
 
     return result;
+  }
+
+  async playersLeftInGame(lobbyId: string) {
+    if (!lobbyId) {
+      throw new Error("Something went wrong, lobby ID not defined");
+    }
+
+    const playersLeft = await playersModel.playersLeftInGame(lobbyId);
+
+    return playersLeft;
+  }
+
+  async resetLobbyVotingRound(lobbyId: string) {
+    if (!lobbyId) {
+      throw new Error("Something went wrong, lobby ID not defined");
+    }
+
+    await lobbiesModel.resetLobbyVotingRound(lobbyId);
   }
 }
 

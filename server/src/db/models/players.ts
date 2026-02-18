@@ -1,11 +1,11 @@
 import { Player } from "../../schemas/gameSchema";
-import { pool } from "../index";
+import { query } from "../index";
 
 export async function enterPlayer(name: string, lobbyId: string) {
   if (!name) throw new Error("Name is required");
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
         INSERT INTO players (name, lobby_id)
         VALUES($1, $2) RETURNING *
@@ -15,32 +15,32 @@ export async function enterPlayer(name: string, lobbyId: string) {
   return result.rows[0];
 }
 
-export async function exitPlayer(player_id: string, lobbyId: string) {
-  if (!player_id) throw new Error("Player ID is required");
+export async function exitPlayer(playerId: string, lobbyId: string) {
+  if (!playerId) throw new Error("Player ID is required");
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
       DELETE FROM players WHERE id = $1 and lobby_id=$2
       RETURNING *
       `,
-    [player_id, lobbyId],
+    [playerId, lobbyId],
   );
 
   return result.rows[0];
 }
-export async function setIsHost(player_id: string, lobbyId: string) {
-  if (!player_id) throw new Error("Player ID is required");
+export async function setIsHost(playerId: string, lobbyId: string) {
+  if (!playerId) throw new Error("Player ID is required");
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
       UPDATE players
       SET is_host = true
       WHERE id = $1 AND lobby_id = $2
       RETURNING *
     `,
-    [player_id, lobbyId],
+    [playerId, lobbyId],
   );
 
   if (result.rowCount === 0) {
@@ -60,22 +60,22 @@ export async function votePlayer(
   if (!lobbyId) throw new Error("Lobby ID is required");
   if (playerId === playerToVoteId) throw new Error("Cannot vote for yourself");
 
-  let voting_round = await getRoundFromLobby(lobbyId);
+  let votingRound = await getRoundFromLobby(lobbyId);
 
   //what if player sends 3 requests at the same time
 
-  const result = await pool.query(
+  const result = await query(
     `INSERT INTO votes (player_id, voted_for_player_id, lobby_id, voting_round)
    VALUES ($1, $2, $3, $4)
    RETURNING *
    `,
-    [playerId, playerToVoteId, lobbyId, voting_round],
+    [playerId, playerToVoteId, lobbyId, votingRound],
   );
 
   return result.rows[0];
 }
 export async function assignImposter(lobbyId: string, num: number = 1) {
-  const result = await pool.query(
+  const result = await query(
     `
     UPDATE players 
     SET is_imposter = true
@@ -94,7 +94,7 @@ export async function playerVotedOut(lobbyId: string, playerId: string) {
   if (!lobbyId || !playerId)
     throw new Error("Something went wrong, check playerid or lobby id");
 
-  const result = await pool.query(
+  const result = await query(
     `
     UPDATE players SET voted_out = true
 WHERE id = $1 AND lobby_id = $2
@@ -108,9 +108,9 @@ export async function countVotes(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
   // count votes for current round in lobby
-  let voting_round = await getRoundFromLobby(lobbyId);
+  let votingRound = await getRoundFromLobby(lobbyId);
 
-  const { rows } = await pool.query(
+  const { rows } = await query(
     `
     SELECT 
     p.id,
@@ -120,12 +120,12 @@ export async function countVotes(lobbyId: string) {
     FROM players p
     LEFT JOIN votes v ON p.id = v.voted_for_player_id
     AND v.voting_round = $2
-    WHERE p.lobby_id=$1
+    WHERE p.lobby_id=$1 AND p.voted_out IS NOT TRUE
     GROUP BY p.id, p.name, p.is_imposter
     ORDER BY vote_count DESC
 
     `,
-    [lobbyId, voting_round],
+    [lobbyId, votingRound],
   );
 
   return rows; // first one has the most vote but check if imposter
@@ -139,7 +139,7 @@ export async function checkIfAllPlayersVoted(
   if (currentRound === undefined || currentRound === null)
     throw new Error("Current round is required");
 
-  const { rows } = await pool.query(
+  const { rows } = await query(
     `
     SELECT
     (SELECT COUNT(*) FROM players WHERE lobby_id=$1) as total_players,
@@ -149,29 +149,29 @@ export async function checkIfAllPlayersVoted(
     [lobbyId, currentRound],
   );
 
-  const { total_players, votes_cast } = rows[0];
+  const { totalPlayers, votesCast } = rows[0];
 
-  return Number(total_players) === Number(votes_cast) ? true : false;
+  return Number(totalPlayers) === Number(votesCast) ? true : false;
 }
 
 // player votes for player
 export async function getRoundFromLobby(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
     SELECT voting_round FROM LOBBIES WHERE id=$1
   `,
     [lobbyId],
   );
 
-  return result.rows[0]?.voting_round;
+  return result.rows[0]?.votingRound;
 }
 
 export async function getAllPlayersInLobby(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
     SELECT * FROM players
     WHERE lobby_id=$1
@@ -182,7 +182,7 @@ export async function getAllPlayersInLobby(lobbyId: string) {
 }
 
 export async function getPlayerInLobby(lobbyId: string, playerId: string) {
-  const result = await pool.query(
+  const result = await query(
     `
     SELECT * FROM players
     WHERE lobby_id=$1 AND id=$2
@@ -195,7 +195,7 @@ export async function getPlayerInLobby(lobbyId: string, playerId: string) {
 export async function chooseWordPairId(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
     UPDATE lobbies
     SET word_pair_id = (
@@ -213,22 +213,22 @@ export async function chooseWordPairId(lobbyId: string) {
     [lobbyId],
   );
 
-  if (result.rows[0]?.word_pair_id) {
-    await pool.query(
+  if (result.rows[0]?.wordPairId) {
+    await query(
       `
       INSERT INTO used_words_per_lobby (lobby_id, word_pair_id)
       VALUES ($1, $2);
       `,
-      [lobbyId, result.rows[0].word_pair_id],
+      [lobbyId, result.rows[0].wordPairId],
     );
   }
-  return result.rows[0].word_pair_id;
+  return result.rows[0].wordPairId;
 }
 
 export async function getImposterFromLobby(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  let result = await pool.query(
+  let result = await query(
     `
     SELECT id FROM players 
     WHERE lobby_id = $1 AND is_imposter = true 
@@ -237,6 +237,20 @@ export async function getImposterFromLobby(lobbyId: string) {
   );
 
   return result.rows[0]?.id ?? null;
+}
+
+// how many players in game that havent been voted out
+export async function playersLeftInGame(lobbyId: string) {
+  if (!lobbyId) throw new Error("Lobby ID is required");
+
+  const result = await query(
+    `
+  SELECT COUNT(*) FROM players WHERE lobby_id = $1 AND voted_out IS NOT TRUE
+  `,
+    [lobbyId],
+  );
+
+  return parseInt(result.rows[0].count, 10);
 }
 
 export async function assignWordsToPlayers(lobbyId: string) {
@@ -255,27 +269,27 @@ export async function assignWordsToPlayers(lobbyId: string) {
     throw Error("Something went wrong. There is no imposter in the lobby!");
   }
   //
-  let { rows } = await pool.query(
+  let { rows } = await query(
     `
-    SELECT category, real_word, imposter_word FROM word_pairs WHERE id = $1
+    SELECT real_word, imposter_word FROM word_pairs WHERE id = $1
     `,
     [wordPairId],
   );
 
-  const { category, real_word, imposter_word } = rows[0];
-  if (!rows[0] || !real_word || !imposter_word) {
+  const { realWord, imposterWord } = rows[0];
+  if (!rows[0] || !realWord || !imposterWord) {
     throw new Error("Something went wrong, word_pair not found.");
   }
 
   // assign word
-  let result = await pool.query(
+  let result = await query(
     `
    UPDATE players
    SET assigned_word = CASE WHEN NOT is_imposter THEN $1 ELSE $2 END
    WHERE lobby_id = $3
    RETURNING *
     `,
-    [real_word, imposter_word, lobbyId],
+    [realWord, imposterWord, lobbyId],
   );
 
   return result.rows;

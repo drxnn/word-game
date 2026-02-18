@@ -1,11 +1,11 @@
-import { pool } from "../index";
+import { query, connect } from "../index";
 import { enterPlayer } from "./players";
 
 export async function createLobby(code: string) {
   if (!code) throw new Error("Code is required");
 
   try {
-    const result = await pool.query(
+    const result = await query(
       `
         INSERT INTO lobbies (code)
         VALUES ($1) RETURNING *
@@ -25,19 +25,21 @@ export async function setImposterKnows(lobbyId: string, flag: boolean) {
   if (!lobbyId) throw new Error("Lobby ID is required");
   if (typeof flag !== "boolean") throw new Error("Flag must be a boolean");
 
-  await pool.query(
+  const result = await query(
     `
     UPDATE lobbies
     SET imposter_knows = $2
-    WHERE id=$1
+    WHERE id=$1 RETURNING *
     `,
     [lobbyId, flag],
   );
+
+  return result.rows[0];
 }
 
 export async function incrementVotingRound(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
-  return await pool.query(
+  return await query(
     `
     UPDATE lobbies 
     SET voting_round = voting_round + 1 
@@ -50,7 +52,7 @@ export async function incrementVotingRound(lobbyId: string) {
 export async function resetLobbyVotingRound(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const client = await pool.connect();
+  const client = await connect();
 
   try {
     await client.query("BEGIN");
@@ -85,7 +87,7 @@ UPDATE lobbies SET voting_round = 0, word_pair_id = NULL WHERE id=$1
 export async function countLobbyPlayers(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `
     SELECT COUNT(*) as count FROM players WHERE lobby_id = $1
     `,
@@ -97,7 +99,7 @@ export async function countLobbyPlayers(lobbyId: string) {
 export async function deleteLobby(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  let result = await pool.query(
+  let result = await query(
     `
     DELETE FROM lobbies
     WHERE id=$1
@@ -111,7 +113,7 @@ export async function deleteLobby(lobbyId: string) {
 export async function getLobbyById(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  const result = await pool.query(
+  const result = await query(
     `  SELECT * FROM lobbies WHERE id = $1
         `,
     [lobbyId],
@@ -122,7 +124,7 @@ export async function getLobbyById(lobbyId: string) {
 export async function getLobbyByCode(code: string) {
   if (!code) throw new Error("Code is required");
 
-  const result = await pool.query(
+  const result = await query(
     `  SELECT * FROM lobbies WHERE code = $1
         `,
     [code],
@@ -141,17 +143,17 @@ export async function joinLobbyWithCode(name: string, code: string) {
 
 export async function haveAllPlayersVoted(
   lobbyId: string,
-  voting_round: number,
+  votingRound: number,
 ): Promise<boolean> {
   if (!lobbyId) throw new Error("Lobby ID is required");
-  if (voting_round == null) throw new Error("Voting round is required");
-  const result = await pool.query(
+  if (votingRound == null) throw new Error("Voting round is required");
+  const result = await query(
     `
     SELECT 
-    (SELECT COUNT(*) FROM players WHERE lobby_id = $1 AND voted_out = false) as total_players,
+    (SELECT COUNT(*) FROM players WHERE lobby_id = $1 AND voted_out IS NOT TRUE) as total_players,
     (SELECT COUNT (*) FROM votes WHERE lobby_id = $1 and voting_round = $2) as total_votes
     `,
-    [lobbyId, voting_round],
+    [lobbyId, votingRound],
   );
   const { total_players, total_votes } = result.rows[0];
   return Number(total_votes) == Number(total_players);
