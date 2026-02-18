@@ -1,8 +1,14 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import FlipCard from "./FlipCard";
-import { useState } from "react";
-import { PlayerForLobbyType, Player } from "@/lib/types";
+
+import {
+  PlayerForLobbyType,
+  Player,
+  ClientToServer,
+  VoteState,
+} from "@/lib/types";
+import { sendWsMessage } from "@/services/ws";
 
 type GameProps = {
   players: PlayerForLobbyType[];
@@ -12,6 +18,8 @@ type GameProps = {
   votesCounted: boolean;
   voting: boolean;
   voted: boolean;
+  wsRef: React.RefObject<WebSocket | null>;
+  voteState: VoteState;
 };
 
 export default function Game({
@@ -22,11 +30,17 @@ export default function Game({
   votesCounted,
   voting,
   voted,
+  wsRef,
+  voteState,
 }: GameProps) {
-  const [readyToVote, setReadyToVote] = useState(false);
-
   const onReadyToVote = () => {
-    setReadyToVote(true);
+    const messageToSend = {
+      type: "voteState",
+      msg: "start",
+    } as ClientToServer;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      sendWsMessage(messageToSend, wsRef.current);
+    }
   };
 
   return (
@@ -90,7 +104,7 @@ export default function Game({
                       </p>
                     )}
                   </div>
-                  {readyToVote && (
+                  {voteState === "start" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -108,7 +122,7 @@ export default function Game({
           </div>
         </Card>
 
-        {isHost && !readyToVote && (
+        {isHost && voteState === "idle" && (
           <Button
             onClick={onReadyToVote}
             className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"

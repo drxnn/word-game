@@ -7,7 +7,6 @@ import http from "http";
 import apiRouter from "./routes/index";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler } from "./middlewares/errorHandler";
-import { pool } from "./db";
 
 export const app = express();
 export const server = http.createServer(app);

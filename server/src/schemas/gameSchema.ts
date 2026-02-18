@@ -99,10 +99,11 @@ export const WordPairSchema = z.object({
 
 export const ServerToClientMapSchema = z.object({
   lobbyCreated: z.object({ lobbyId: z.uuid() }),
-  playerJoined: ClientInfoSchema.pick({
-    name: true,
-    lobbyId: true,
-  }).extend({ id: z.uuid() }),
+  playerJoined: z.object({
+    id: z.uuid(),
+    name: z.string().trim().min(2).max(20),
+    lobbyId: z.uuid(),
+  }),
   nobodyVotedOut: ClientInfoSchema.pick({ lobbyId: true }),
   playerLeft: ClientInfoSchema.pick({
     name: true,
@@ -142,6 +143,7 @@ export const ServerToClientMapSchema = z.object({
 });
 
 export const ClientToServerMapSchema = z.object({
+  voteState: z.union([z.literal("start"), z.literal("end"), z.literal("idle")]),
   createLobby: z.object({
     playerId: z.uuid(),
     lobbyId: z.uuid(),
@@ -255,6 +257,10 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
       msg: ClientToServerMapSchema.shape.createLobby,
     })
     .strict(),
+  z.object({
+    type: z.literal("voteState"),
+    msg: ClientToServerMapSchema.shape.voteState,
+  }),
   z
     .object({
       type: z.literal("joinLobby"),

@@ -7,9 +7,9 @@ import {
   ClientToServer,
   GameOptions,
   LobbyType,
-  Player,
   PlayerForLobbyType,
   ServerToClientSchema,
+  VoteState,
 } from "@/lib/types";
 import { sendWsMessage, startWsConnection } from "@/services/ws";
 import Game from "./Game";
@@ -24,7 +24,7 @@ type AlertState = {
 export default function HomePage() {
   const ws = useRef<WebSocket | null>(null);
   const [playerName, setPlayerName] = useState("");
-
+  const [voteState, setVoteState] = useState<VoteState>("idle");
   const [votesCounted, setVotesCounted] = useState(false);
   const [voted, setVoted] = useState(false);
   const [voting, setVoting] = useState(false);
@@ -72,8 +72,13 @@ export default function HomePage() {
         console.warn("bad json", err);
         return;
       }
+
       const parsed = ServerToClientSchema.safeParse(message);
-      if (!parsed.success) return;
+      if (!parsed.success) {
+        console.log("schema validation failed:", parsed.error.issues);
+        return;
+      }
+
       switch (parsed.data.type) {
         case "playerJoined": {
           // another player joined<<
@@ -94,7 +99,7 @@ export default function HomePage() {
             lobby: { ...p.lobby, gameStarted: true },
             player: {
               ...p.player,
-              assigned_word: playerInfo.assignedWord,
+              assignedWord: playerInfo.assignedWord,
               isImposter: playerInfo.isImposter,
             },
           }));
@@ -129,13 +134,9 @@ export default function HomePage() {
             players: p.players.map((x) => {
               const match = votes.find((v) => v.id === x.id);
 
-              return match ? { ...x, votes: +match.vote_count } : x;
+              return match ? { ...x, votes: +match.voteCount } : x;
             }),
           }));
-
-          // when votesCounted is received, display votes to users, after 2 seconds,
-          // player that got voted out will be sent as a message
-          // of type playerVotedOut: info
 
           setVotesCounted(true);
 
@@ -150,6 +151,12 @@ export default function HomePage() {
               players: p.players.filter((x) => x.id !== playerId),
             }));
           }
+
+          break;
+        }
+        case "voteState": {
+          const voteState = parsed.data.msg;
+          setVoteState(voteState);
 
           break;
         }
@@ -228,7 +235,7 @@ export default function HomePage() {
           return {
             ...p,
             lobby: result.lobby,
-            player: { ...result.player, isHost: result.player?.is_host }, // fix later camel to camel case consistent
+            player: { ...result.player, isHost: result.player?.isHost }, // fix later camel to camel case consistent
             players: [result.player],
           };
         });
@@ -270,7 +277,7 @@ export default function HomePage() {
     if (lobby.lobby.id) {
       setLobby((p) => ({
         ...p,
-        lobby: { ...p.lobby, gameStarted: true },
+        lobby: { ...p.lobby },
       }));
       const messageToSend = {
         type: "startGame",
@@ -322,12 +329,12 @@ export default function HomePage() {
     setVoting(true);
     try {
       const targetId = e.currentTarget.dataset.playerId;
-
+      console.log(`the target id is: ${targetId}`);
       const messageToSend = {
         type: "votePlayer",
         msg: {
           playerId: lobby.player.id,
-          targetId,
+          targetId: targetId,
           lobbyId: lobby.lobby.id,
         },
       } as ClientToServer;
@@ -350,6 +357,8 @@ export default function HomePage() {
         votesCounted={votesCounted}
         voting={voting}
         voted={voted}
+        wsRef={ws}
+        voteState={voteState}
       />
     );
   }

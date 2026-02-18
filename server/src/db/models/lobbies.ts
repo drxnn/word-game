@@ -155,6 +155,9 @@ export async function haveAllPlayersVoted(
     `,
     [lobbyId, votingRound],
   );
-  const { total_players, total_votes } = result.rows[0];
-  return Number(total_votes) == Number(total_players);
+  const { totalPlayers, totalVotes } = result.rows[0];
+  console.log(
+    `total players is ${totalPlayers} and totalvotes is ${totalVotes}`,
+  );
+  return Number(totalVotes) == Number(totalPlayers);
 }

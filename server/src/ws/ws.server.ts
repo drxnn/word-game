@@ -100,6 +100,18 @@ wss.on("connection", (ws, req) => {
           });
           break;
         }
+        case "voteState": {
+          const voteState = parsed.data.msg;
+          if (voteState === "start") {
+            // respond to everyone that vote has started
+            if (clientInfo.lobbyId)
+              broadCastToLobby(clientInfo.lobbyId, {
+                type: "voteState",
+                msg: "start",
+              });
+          }
+          break;
+        }
 
         case "leaveLobby": {
           clientInfo = addToClientInfo(
@@ -162,26 +174,38 @@ wss.on("connection", (ws, req) => {
             lobby.votingRound,
           );
 
+          console.log(
+            `we are here, lobby is${lobby}, and all voted is: ${allVoted}`,
+          );
+
           if (allVoted) {
-            await GameManager.incrementVotingRound(lobbyId);
             const results = await GameManager.countVotes(lobbyId);
             broadCastToLobby(lobbyId, {
               type: "votesCounted",
               msg: { lobbyId, votes: results },
             });
 
-            const sorted = [...results].sort(
-              (a, b) => +b.voteCount - +a.voteCount,
-            );
+            await GameManager.incrementVotingRound(lobbyId);
             const numOfPlayersLeft =
               await GameManager.playersLeftInGame(lobbyId);
-            const top = sorted[0];
-            const second = sorted[1];
+
+            console.log(`num of players left is ${numOfPlayersLeft}`);
+            console.table(results);
+            const top = results[0];
+            const second = results[1];
             const hasMajority =
               top && (!second || +top.voteCount > +second.voteCount);
+            console.log();
+
+            console.log(
+              `top is ${top.name}, second is ${second.name}, hasMajority is ${hasMajority}`,
+            );
 
             if (hasMajority) {
               await GameManager.playerVotedOut(top.id, lobbyId);
+
+              const numOfPlayersLeft =
+                await GameManager.playersLeftInGame(lobbyId);
               if (top.isImposter) {
                 broadCastToLobby(lobbyId, {
                   type: "gameOver",
@@ -243,6 +267,11 @@ wss.on("connection", (ws, req) => {
           }
           try {
             await GameManager.startGame(clientInfo.lobbyId, clientInfo.options);
+            const players = await GameManager.getAllPlayers(clientInfo.lobbyId);
+            if (!players || players.length === 0) {
+              sendError(ws, "players array is empty");
+              break;
+            }
             const sockets = lobbyToSockets.get(clientInfo.lobbyId);
             if (sockets) {
               for (const s of sockets) {
@@ -256,7 +285,8 @@ wss.on("connection", (ws, req) => {
                       msg: {
                         assignedWord: player.assignedWord,
                         isImposter: player.isImposter,
-                        lobbyId: player.lobbyId,
+                        name: player.name,
+                        isHost: player.isHost ?? false,
                       },
                     }),
                   );

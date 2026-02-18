@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS players (
   created_at TIMESTAMP DEFAULT now(),
   is_imposter BOOLEAN DEFAULT false,
   is_host BOOLEAN,
-  assigned_word TEXT
-  voted_out BOOLEAN DEFAULT false,
+  assigned_word TEXT,
+  voted_out BOOLEAN DEFAULT false
   );
 
 
