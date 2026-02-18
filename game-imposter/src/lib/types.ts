@@ -8,6 +8,7 @@ export const PlayerSchema = z.object({
   isImposter: z.boolean(),
   isHost: z.boolean(),
   assignedWord: z.string().max(50).trim(),
+  votes: z.number(),
 });
 
 export const LobbySchema = z.object({
@@ -130,14 +131,22 @@ export const ServerToClientMapSchema = z.object({
     isImposter: true,
     assignedWord: true,
   }),
-  playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }),
+  playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }).extend({
+    isImposter: z.boolean,
+  }),
   startGameInfo: z.array(PlayerSchema),
-  votesCounted: z.array(
-    z.object({
-      lobbyId: z.uuid(),
-      votes: z.record(z.string(), z.number()),
-    }),
-  ),
+  votesCounted: z.object({
+    lobbyId: z.uuid(),
+    votes: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        is_imposter: z.boolean(),
+        vote_count: z.string(),
+      }),
+    ),
+  }),
+
   roundEnded: z.array(PlayerSchema),
   gameStarted: z.array(PlayerSchema),
   endLobby: z.array(PlayerSchema),

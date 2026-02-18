@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS players (
   is_imposter BOOLEAN DEFAULT false,
   is_host BOOLEAN,
   assigned_word TEXT
+  voted_out BOOLEAN DEFAULT false,
   );
 
 
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS votes (
     voted_for_player_id UUID REFERENCES players(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT now(),
     voting_round INTEGER NOT NULL,
-    PRIMARY KEY (player_id, voting_round)
+    PRIMARY KEY (player_id, lobby_id, voting_round)
 );
 
 

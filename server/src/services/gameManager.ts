@@ -1,4 +1,4 @@
-// memory manager
+import { customAlphabet } from "nanoid";
 
 import {
   Lobby,
@@ -12,13 +12,9 @@ import * as lobbiesModel from "../db/models/lobbies";
 import * as playersModel from "../db/models/players";
 import { enterPlayer } from "../db/models/players";
 
+const nanoid = customAlphabet("ABCDEFGHJKMNPQRSTUVWXYZ23456789", 6);
 function generateCode(len = 6) {
-  // make sure you check later that the same code cannot be generated twice
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < len; i++)
-    out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
+  return nanoid();
 }
 
 class _GameManager {
@@ -168,6 +164,26 @@ class _GameManager {
     }
 
     return result.rows[0];
+  }
+
+  async incrementVotingRound(lobbyId: string) {
+    if (!lobbyId) {
+      throw new Error("Something went wrong, lobby ID not defined");
+    }
+    await lobbiesModel.incrementVotingRound(lobbyId);
+  }
+
+  async playerVotedOut(lobbyId: string, playerId: string) {
+    const result = await playersModel.playerVotedOut(lobbyId, playerId);
+    return result;
+  }
+  async haveAllPlayersVoted(lobbyId: string, voting_round: number) {
+    const result = await lobbiesModel.haveAllPlayersVoted(
+      lobbyId,
+      voting_round,
+    );
+
+    return result;
   }
 }
 

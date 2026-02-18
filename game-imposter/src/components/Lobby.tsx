@@ -11,7 +11,6 @@ type LobbyProps = {
 
 export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
   // Dummy data for preview
-  const lobbyCode = "ABC123";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-indigo-100 flex items-center justify-center p-4">

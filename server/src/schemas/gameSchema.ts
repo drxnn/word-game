@@ -7,6 +7,7 @@ export const PlayerSchema = z.object({
   is_imposter: z.boolean(),
   is_host: z.boolean(),
   assigned_word: z.string().max(50).trim(),
+  votes: z.number(),
 });
 
 export const LobbySchema = z.object({
@@ -107,6 +108,7 @@ export const ServerToClientMapSchema = z.object({
     playerId: true,
     lobbyId: true,
   }),
+  nobodyVotedOut: ClientInfoSchema.pick({ lobbyId: true }),
   playerLeft: ClientInfoSchema.pick({
     name: true,
     playerId: true,
@@ -117,14 +119,22 @@ export const ServerToClientMapSchema = z.object({
     playerId: true,
     targetId: true,
   }),
-  playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }),
+  playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }).extend({
+    isImposter: z.boolean,
+  }),
   startGameInfo: z.array(PlayerSchema),
-  votesCounted: z.array(
-    z.object({
-      lobbyId: z.uuid(),
-      votes: z.record(z.string(), z.number()),
-    }),
-  ),
+  votesCounted: z.object({
+    lobbyId: z.uuid(),
+    votes: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        is_imposter: z.boolean(),
+        vote_count: z.string(),
+      }),
+    ),
+  }),
+
   roundEnded: z.array(PlayerSchema),
   gameStarted: z.array(PlayerSchema),
   endLobby: z.array(PlayerSchema),
@@ -179,6 +189,18 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("lobbyCreated"),
     msg: ServerToClientMapSchema.shape.lobbyCreated,
+  }),
+  z.object({
+    type: z.literal("playerVotedOut"),
+    msg: ServerToClientMapSchema.shape.playerVotedOut,
+  }),
+  z.object({
+    type: z.literal("nobodyVotedOut"),
+    msg: ServerToClientMapSchema.shape.nobodyVotedOut,
+  }),
+  z.object({
+    type: z.literal("countVotes"),
+    msg: ServerToClientMapSchema.shape.votesCounted,
   }),
   z.object({
     type: z.literal("playerJoined"),

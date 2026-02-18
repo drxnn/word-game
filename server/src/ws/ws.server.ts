@@ -2,7 +2,11 @@ import WebSocket, { WebSocketServer, type VerifyClientCallbackSync } from "ws";
 import { server } from "../main";
 
 import { GameManager } from "../services/gameManager";
-import { ClientInfo, ClientToServerSchema } from "../schemas/gameSchema";
+import {
+  ClientInfo,
+  ClientToServerSchema,
+  ServerToClient,
+} from "../schemas/gameSchema";
 
 import {
   addSocketToLobby,
@@ -148,11 +152,49 @@ wss.on("connection", (ws, req) => {
             sendError(ws, "vote_cast_failed");
             break;
           }
+          const lobby = await GameManager.getLobby(lobbyId); // make a specific get voting_round fn
+          const allVoted = await GameManager.haveAllPlayersVoted(
+            lobbyId,
+            lobby.voting_round,
+          ); // new check
 
-          broadCastToLobby(lobbyId, {
-            type: "playerVoted",
-            msg: { playerId, targetId },
-          });
+          if (allVoted) {
+            await GameManager.incrementVotingRound(lobbyId);
+            const results = await GameManager.countVotes(lobbyId);
+
+            broadCastToLobby(lobbyId, {
+              type: "votesCounted",
+              msg: { lobbyId, votes: results },
+            });
+
+            await new Promise((resolve) => setTimeout(resolve, 3000)); // wait 3 sec then send who got voted out
+            const sorted = [...results].sort(
+              (a, b) => +b.vote_count - +a.vote_count,
+            );
+            const top = sorted[0];
+            const second = sorted[1];
+            const hasMajority =
+              top && (!second || +top.vote_count > +second.vote_count);
+
+            if (hasMajority) {
+              await GameManager.playerVotedOut(top.id, lobbyId);
+              broadCastToLobby(lobbyId, {
+                type: "playerVotedOut",
+                msg: { playerId: top.id, isImposter: top.isImposter },
+              });
+            } else {
+              broadCastToLobby(lobbyId, {
+                type: "nobodyVotedOut",
+                msg: { lobbyId },
+              });
+            }
+          } else {
+            broadCastToLobby(lobbyId, {
+              type: "playerVoted",
+              msg: { playerId, targetId },
+            });
+          }
+
           break;
         }
         case "startGame": {
@@ -223,23 +265,23 @@ wss.on("connection", (ws, req) => {
 
           break;
         }
-        case "voteCount": {
-          if (!clientInfo.lobbyId) {
-            sendError(ws, "missing_lobbyId");
-            break;
-          }
-          let votes = await GameManager.countVotes(clientInfo.lobbyId);
-          if (!votes) {
-            sendError(ws, "votes array is empty");
-            break;
-          }
+        // case "voteCount": {
+        //   if (!clientInfo.lobbyId) {
+        //     sendError(ws, "missing_lobbyId");
+        //     break;
+        //   }
+        //   let votes = await GameManager.countVotes(clientInfo.lobbyId);
+        //   if (!votes) {
+        //     sendError(ws, "votes array is empty");
+        //     break;
+        //   }
 
-          broadCastToLobby(clientInfo.lobbyId, {
-            type: "votesCounted",
-            msg: votes,
-          });
-          break;
-        }
+        //   broadCastToLobby(clientInfo.lobbyId, {
+        //     type: "votesCounted",
+        //     msg: votes,
+        //   });e
+        //   break;
+        // }
         // case "endLobby": {
         //   // host can end lobby or if everyone leaves
         // }

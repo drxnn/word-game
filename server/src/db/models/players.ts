@@ -90,7 +90,20 @@ export async function assignImposter(lobbyId: string, num: number = 1) {
 
   return result.rows;
 }
+export async function playerVotedOut(lobbyId: string, playerId: string) {
+  if (!lobbyId || !playerId)
+    throw new Error("Something went wrong, check playerid or lobby id");
 
+  const result = await pool.query(
+    `
+    UPDATE players SET voted_out = true
+WHERE id = $1 AND lobby_id = $2
+RETURNING *
+    `,
+    [playerId, lobbyId],
+  );
+  return result.rows[0];
+}
 export async function countVotes(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 

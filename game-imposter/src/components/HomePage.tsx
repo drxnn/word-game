@@ -7,6 +7,7 @@ import {
   ClientToServer,
   GameOptions,
   LobbyType,
+  Player,
   PlayerForLobbyType,
   ServerToClientSchema,
 } from "@/lib/types";
@@ -18,15 +19,10 @@ export default function HomePage() {
   const ws = useRef<WebSocket | null>(null);
   const [playerName, setPlayerName] = useState("");
   const [alert, setAlert] = useState<string | null>(null);
+  const [votesCounted, setVotesCounted] = useState(false);
+  const [voted, setVoted] = useState(false);
+  const [voting, setVoting] = useState(false);
 
-  // const [playerInfo, setPlayerInfo] = useState<Player>({
-  //   name: "",
-  //   id: "",
-  //   lobbyId: "",
-  //   isHost: false,
-  //   assignedWord: "",
-  //   isImposter: false,
-  // });
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
   const [options, setOptions] = useState<GameOptions>({
@@ -34,6 +30,17 @@ export default function HomePage() {
     numOfImposters: 1, // default
   });
   const [lobby, setLobby] = useState<LobbyType>({} as LobbyType);
+
+  useEffect(() => {
+    if (!votesCounted) return;
+
+    // 3 seconds to show player that was kicked out, then reset
+    const timer = setTimeout(() => {
+      setVotesCounted(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [votesCounted]);
 
   //extract into custon hook later, extract logic into handlers
   useEffect(() => {
@@ -96,6 +103,27 @@ export default function HomePage() {
           }));
           break;
         }
+        case "votesCounted": {
+          const { votes } = parsed.data.msg;
+
+          setLobby((p) => ({
+            ...p,
+            players: p.players.map((x) => {
+              const match = votes.find((v) => v.id === x.id);
+
+              return match ? { ...x, votes: +match.vote_count } : x;
+            }),
+          }));
+          // when votesCounted is received, display votes to users, after 2 seconds, player that got voted out will be sent as a message
+          // of type playerVotedOut: info
+
+          setVotesCounted(true);
+
+          break;
+        }
+        case "playerVotedOut": {
+          break;
+        }
         case "error": {
           setAlert(parsed.data.msg);
         }
@@ -115,7 +143,6 @@ export default function HomePage() {
       ws.current.removeEventListener("close", handleClose);
       ws.current.removeEventListener("error", handleError);
 
-      // Gracefully close the connection
       try {
         ws.current.close();
       } catch (err) {
@@ -134,7 +161,7 @@ export default function HomePage() {
           return {
             ...p,
             lobby: result.lobby,
-            player: { ...p.player, isHost: result.player.is_host }, // fix later
+            player: { ...p.player, isHost: result.player?.is_host }, // fix later
             players: [result.player],
           };
         });
@@ -158,7 +185,6 @@ export default function HomePage() {
     // leave lobby, only when player exits by themselves, closing browser won't do it,
   };
 
-  const onReadyToVote = () => {};
   const handleStartGame = () => {
     if (lobby.lobby.id) {
       const messageToSend = {
@@ -206,29 +232,40 @@ export default function HomePage() {
     }
   };
 
-  const handleVotePlayer = async (targetId: string) => {
-    // on vote => vote with ws
-    // get id of player you are voting for
-    const messageToSend = {
-      type: "votePlayer",
-      msg: {
-        playerId: lobby.player.id,
-        targetId,
-        lobbyId: lobby.lobby.id,
-      },
-    } as ClientToServer;
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      sendWsMessage(messageToSend, ws.current);
+  const handleVotePlayer = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // get targetId from data-attribute of button?
+    if (voted || voting) return;
+    setVoting(true);
+    try {
+      const targetId = e.currentTarget.dataset.playerId;
+
+      const messageToSend = {
+        type: "votePlayer",
+        msg: {
+          playerId: lobby.player.id,
+          targetId,
+          lobbyId: lobby.lobby.id,
+        },
+      } as ClientToServer;
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        sendWsMessage(messageToSend, ws.current);
+      }
+      setVoted(true);
+    } finally {
+      setVoting(false);
     }
   };
 
-  if (lobby?.lobby) {
+  if (lobby?.lobby /* && lobby.player?.assignedWord */) {
     return (
       <Game
         players={lobby.players}
         currentPlayer={lobby.player}
-        isHost={lobby.player.isHost}
-        onReadyToVote={onReadyToVote}
+        isHost={lobby.player?.isHost}
+        handleVotePlayer={handleVotePlayer}
+        votesCounted={votesCounted}
+        voting={voting}
+        voted={voted}
       />
     );
   }

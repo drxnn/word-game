@@ -1,27 +1,34 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import FlipCard from "./FlipCard";
-
-type Player = {
-  id: string;
-  name: string;
-  assigned_word?: string;
-  isImposter?: boolean;
-};
+import { useState } from "react";
+import { Player } from "@/lib/types";
 
 type GameProps = {
   players: Player[];
   currentPlayer: Player;
   isHost: boolean;
-  onReadyToVote: () => void;
+  handleVotePlayer: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  votesCounted: boolean;
+  voting: boolean;
+  voted: boolean;
 };
 
 export default function Game({
   players,
   currentPlayer,
   isHost,
-  onReadyToVote,
+  handleVotePlayer,
+  votesCounted,
+  voting,
+  voted,
 }: GameProps) {
+  const [readyToVote, setReadyToVote] = useState(false);
+
+  const onReadyToVote = () => {
+    setReadyToVote(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
@@ -36,7 +43,7 @@ export default function Game({
         {/* Reveal Word Card */}
         <Card className="p-6 shadow-xl border-none bg-white/80 backdrop-blur-sm">
           <FlipCard
-            word={currentPlayer.assigned_word}
+            word={currentPlayer.assignedWord}
             isImposter={currentPlayer.isImposter || false}
           />
         </Card>
@@ -64,6 +71,7 @@ export default function Game({
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                     {player.name.charAt(0).toUpperCase()}
                   </div>
+
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-800 text-sm truncate">
                       {player.name}
@@ -73,18 +81,37 @@ export default function Game({
                         </span>
                       )}
                     </p>
+                    {votesCounted && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Votes:{" "}
+                        <span className="font-semibold text-red-500">
+                          {player.votes ?? 0}
+                        </span>
+                      </p>
+                    )}
                   </div>
+                  {readyToVote && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={voted || voting}
+                      className="text-xs font-semibold hover:cursor-pointer text-black border-red-300 hover:bg-red-50 hover:border-red-400 transition-all"
+                      data-player-id={player.id}
+                      onClick={handleVotePlayer}
+                    >
+                      {voting ? "Voting..." : voted ? "Voted" : "Vote"}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         </Card>
 
-        {/* Ready to Vote Button (Host Only) */}
-        {isHost && (
+        {isHost && !readyToVote && (
           <Button
             onClick={onReadyToVote}
-            className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+            className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"
           >
             Ready to Vote
           </Button>
@@ -97,11 +124,6 @@ export default function Game({
             </p>
           </div>
         )}
-
-        {/* Footer Icon */}
-        <div className="text-center">
-          <span className="text-4xl">🎯</span>
-        </div>
       </div>
     </div>
   );
