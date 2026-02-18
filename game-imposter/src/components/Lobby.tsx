@@ -1,7 +1,7 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ClientToServer, LobbyType, Player } from "@/lib/types";
+import { LobbyType, Player } from "@/lib/types";
 
 type LobbyProps = {
   lobby: LobbyType;

@@ -22,6 +22,7 @@ export const LobbySchema = z.object({
   votingRound: z.number().min(0),
   createdAt: z.string().optional(),
   wordPairId: z.uuid(),
+  gameStarted: z.boolean(),
 });
 
 export const gameOptionsSchema = z.object({
@@ -131,8 +132,11 @@ export const ServerToClientMapSchema = z.object({
     isImposter: true,
     assignedWord: true,
   }),
+  nobodyVotedOut: ClientInfoSchema.pick({
+    lobbyId: true,
+  }),
   playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }).extend({
-    isImposter: z.boolean,
+    isImposter: z.boolean(),
   }),
   startGameInfo: z.array(PlayerSchema),
   votesCounted: z.object({
@@ -205,6 +209,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerJoined"),
     msg: ServerToClientMapSchema.shape.playerJoined,
+  }),
+  z.object({
+    type: z.literal("nobodyVotedOut"),
+    msg: ServerToClientMapSchema.shape.nobodyVotedOut,
   }),
   z.object({
     type: z.literal("playerLeft"),

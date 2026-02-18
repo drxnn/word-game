@@ -23,6 +23,7 @@ export default function HomePage() {
   const [voted, setVoted] = useState(false);
   const [voting, setVoting] = useState(false);
 
+  const [gameOver, setGameOver] = useState(false);
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
   const [options, setOptions] = useState<GameOptions>({
@@ -44,6 +45,7 @@ export default function HomePage() {
 
   //extract into custon hook later, extract logic into handlers
   useEffect(() => {
+    console.log(`lobby is : ${lobby}`);
     ws.current = startWsConnection();
     const handleMessage = (e: MessageEvent) => {
       console.log(`message received: ${e.data}`);
@@ -114,7 +116,9 @@ export default function HomePage() {
               return match ? { ...x, votes: +match.vote_count } : x;
             }),
           }));
-          // when votesCounted is received, display votes to users, after 2 seconds, player that got voted out will be sent as a message
+
+          // when votesCounted is received, display votes to users, after 2 seconds,
+          // player that got voted out will be sent as a message
           // of type playerVotedOut: info
 
           setVotesCounted(true);
@@ -122,6 +126,17 @@ export default function HomePage() {
           break;
         }
         case "playerVotedOut": {
+          // someone got voted out
+          const { playerId, isImposter, name } = parsed.data.msg;
+          if (playerId && name) {
+            playerVotedOut(playerId, isImposter, name);
+          }
+
+          break;
+        }
+        case "nobodyVotedOut": {
+          setAlert("Nobody received enough votes to be voted out!");
+
           break;
         }
         case "error": {
@@ -152,6 +167,50 @@ export default function HomePage() {
     };
   }, []);
 
+  const playerVotedOut = (
+    playerId: string,
+    isImposter: boolean,
+    name: string,
+  ) => {
+    if (isImposter) {
+      // call gameEnd function
+      //alert that imposter got voted out, clear out game data, display lobby
+
+      setGameOver(true);
+      setAlert("The imposter won!"); // will show for 3 seconds then disappear
+
+      setTimeout(() => {
+        setLobby((p) => ({
+          ...p,
+          lobby: { ...p.lobby, gameStarted: false },
+        }));
+      }, 2000);
+
+      const messageToSend = {
+        type: "gameOver",
+        msg: {},
+      };
+
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        // sendWsMessage(messageToSend, ws.current);
+      }
+
+      //
+    } else {
+      // player was not imposter, kick player out, refresh state
+      setAlert(`${name} was not the imposter!`);
+      setLobby((p) => ({
+        ...p,
+        players: p.players
+          .filter((x) => x.id != playerId) // remove player that got kicked out first
+          .map((x) => {
+            x.votes = 0;
+            return x;
+          }),
+      }));
+    }
+  };
+
   const handleCreateLobby = async () => {
     if (playerName.trim()) {
       console.log(playerName);
@@ -161,7 +220,7 @@ export default function HomePage() {
           return {
             ...p,
             lobby: result.lobby,
-            player: { ...p.player, isHost: result.player?.is_host }, // fix later
+            player: { ...p.player, isHost: result.player?.is_host }, // fix later camel to camel case consistent
             players: [result.player],
           };
         });
@@ -187,6 +246,10 @@ export default function HomePage() {
 
   const handleStartGame = () => {
     if (lobby.lobby.id) {
+      setLobby((p) => ({
+        ...p,
+        lobby: { ...p.lobby, gameStarted: true },
+      }));
       const messageToSend = {
         type: "startGame",
         msg: {
@@ -201,7 +264,6 @@ export default function HomePage() {
     }
   };
   const handleJoinLobby = async () => {
-    // validate input klater
     if (playerName.trim() && lobbyCode.trim()) {
       console.log("Joining lobby:", lobbyCode, "as:", playerName);
       try {
@@ -256,7 +318,7 @@ export default function HomePage() {
     }
   };
 
-  if (lobby?.lobby /* && lobby.player?.assignedWord */) {
+  if (lobby?.lobby && lobby.lobby.gameStarted) {
     return (
       <Game
         players={lobby.players}

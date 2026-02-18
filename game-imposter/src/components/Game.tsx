@@ -2,10 +2,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import FlipCard from "./FlipCard";
 import { useState } from "react";
-import { Player } from "@/lib/types";
+import { PlayerForLobbyType, Player } from "@/lib/types";
 
 type GameProps = {
-  players: Player[];
+  players: PlayerForLobbyType[];
   currentPlayer: Player;
   isHost: boolean;
   handleVotePlayer: (e: React.MouseEvent<HTMLButtonElement>) => void;

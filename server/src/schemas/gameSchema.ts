@@ -120,7 +120,7 @@ export const ServerToClientMapSchema = z.object({
     targetId: true,
   }),
   playerVotedOut: ClientInfoSchema.pick({ name: true, playerId: true }).extend({
-    isImposter: z.boolean,
+    isImposter: z.boolean(),
   }),
   startGameInfo: z.array(PlayerSchema),
   votesCounted: z.object({

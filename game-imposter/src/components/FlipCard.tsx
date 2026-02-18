@@ -25,11 +25,9 @@ export default function FlipCard({ word, isImposter }: FlipCardProps) {
           style={{ backfaceVisibility: "hidden" }}
         >
           <div className="text-center space-y-4 p-6">
-            <div className="text-6xl">🎴</div>
             <h2 className="text-2xl font-bold text-white">
-              Click to reveal word
+              Tap to reveal word
             </h2>
-            <p className="text-blue-100 text-sm">Tap the card to flip</p>
           </div>
         </Card>
 
@@ -45,18 +43,17 @@ export default function FlipCard({ word, isImposter }: FlipCardProps) {
             {isImposter ? (
               <>
                 <div className="text-6xl">🕵️</div>
-                <h2 className="text-4xl font-bold text-white">IMPOSTER</h2>
+                <h2 className="text-4xl font-bold text-white">
+                  You are the imposter.
+                </h2>
                 <p className="text-pink-100 text-sm italic">
-                  Blend in and don't get caught!
+                  Don't get caught!
                 </p>
               </>
             ) : (
               <>
-                <div className="text-6xl">✨</div>
-                <h2 className="text-4xl font-bold text-white">{word}</h2>
-                <p className="text-pink-100 text-sm italic">
-                  Give hints without being too obvious
-                </p>
+                <h2 className="text-2xl font-bold text-white">Your word is:</h2>
+                <p className="text-pink-100 text-md italic">{word}</p>
               </>
             )}
           </div>
