@@ -20,6 +20,8 @@ type GameProps = {
   voted: boolean;
   wsRef: React.RefObject<WebSocket | null>;
   voteState: VoteState;
+  gameOver: boolean;
+  handleExitToLobby: () => void;
 };
 
 export default function Game({
@@ -32,6 +34,8 @@ export default function Game({
   voted,
   wsRef,
   voteState,
+  gameOver,
+  handleExitToLobby,
 }: GameProps) {
   const onReadyToVote = () => {
     const messageToSend = {
@@ -73,51 +77,55 @@ export default function Game({
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
-              {players.map((player) => (
-                <div
-                  key={player.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                    player.id === currentPlayer.id
-                      ? "bg-indigo-100 border-2 border-indigo-400"
-                      : "bg-slate-50 border-2 border-transparent" // this gets applied to 2 players even though they are unique
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
-                    {player.name.charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 text-sm truncate">
-                      {player.name}
-                      {player.id === currentPlayer.id && (
-                        <span className="ml-1 text-xs text-indigo-600 font-semibold">
-                          (You)
-                        </span>
-                      )}
-                    </p>
-                    {votesCounted && (
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Votes:{" "}
-                        <span className="font-semibold text-red-500">
-                          {player.votes ?? 0}
-                        </span>
-                      </p>
-                    )}
-                  </div>
-                  {voteState === "start" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={voted || voting}
-                      className="text-xs font-semibold hover:cursor-pointer text-black border-red-300 hover:bg-red-50 hover:border-red-400 transition-all"
-                      data-player-id={player.id}
-                      onClick={handleVotePlayer}
+              {players.map((player) => {
+                if (!player.votedOut) {
+                  return (
+                    <div
+                      key={player.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                        player.id === currentPlayer.id
+                          ? "bg-indigo-100 border-2 border-indigo-400"
+                          : "bg-slate-50 border-2 border-transparent" // this gets applied to 2 players even though they are unique
+                      }`}
                     >
-                      {voting ? "Voting..." : voted ? "Voted" : "Vote"}
-                    </Button>
-                  )}
-                </div>
-              ))}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                        {player.name.charAt(0).toUpperCase()}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-800 text-sm truncate">
+                          {player.name}
+                          {player.id === currentPlayer.id && (
+                            <span className="ml-1 text-xs text-indigo-600 font-semibold">
+                              (You)
+                            </span>
+                          )}
+                        </p>
+                        {votesCounted && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Votes:{" "}
+                            <span className="font-semibold text-red-500">
+                              {player.votes ?? 0}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                      {voteState === "start" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={voted || voting}
+                          className="text-xs font-semibold hover:cursor-pointer text-black border-red-300 hover:bg-red-50 hover:border-red-400 transition-all"
+                          data-player-id={player.id}
+                          onClick={handleVotePlayer}
+                        >
+                          {voting ? "Voting..." : voted ? "Voted" : "Vote"}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                }
+              })}
             </div>
           </div>
         </Card>
@@ -131,7 +139,16 @@ export default function Game({
           </Button>
         )}
 
-        {!isHost && (
+        {gameOver && (
+          <Button
+            onClick={handleExitToLobby}
+            className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"
+          >
+            Exit To Lobby
+          </Button>
+        )}
+
+        {!isHost && voteState === "idle" && (
           <div className="text-center">
             <p className="text-slate-600">
               Waiting for host to start voting...

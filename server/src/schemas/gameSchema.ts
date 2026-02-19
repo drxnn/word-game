@@ -98,6 +98,7 @@ export const WordPairSchema = z.object({
 });
 
 export const ServerToClientMapSchema = z.object({
+  playerBackInLobby: ClientInfoSchema.pick({ playerId: true }),
   lobbyCreated: z.object({ lobbyId: z.uuid() }),
   playerJoined: z.object({
     id: z.uuid(),
@@ -189,6 +190,10 @@ export const ClientToServerMapSchema = z.object({
 
 export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("playerBackInLobby"),
+    msg: ServerToClientMapSchema.shape.playerBackInLobby,
+  }),
+  z.object({
     type: z.literal("lobbyCreated"),
     msg: ServerToClientMapSchema.shape.lobbyCreated,
   }),
@@ -251,6 +256,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
 ]);
 
 export const ClientToServerSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("playerBackInLobby"),
+    msg: ServerToClientMapSchema.shape.playerBackInLobby,
+  }),
   z
     .object({
       type: z.literal("createLobby"),

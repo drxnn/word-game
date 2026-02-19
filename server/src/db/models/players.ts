@@ -62,8 +62,6 @@ export async function votePlayer(
 
   let votingRound = await getRoundFromLobby(lobbyId);
 
-  //what if player sends 3 requests at the same time
-
   const result = await query(
     `INSERT INTO votes (player_id, voted_for_player_id, lobby_id, voting_round)
    VALUES ($1, $2, $3, $4)

@@ -147,6 +147,8 @@ wss.on("connection", (ws, req) => {
         }
 
         case "votePlayer": {
+          // use a transaction here later
+
           clientInfo = addToClientInfo(
             ws,
             { targetId: parsed.data.msg.targetId },
@@ -162,7 +164,9 @@ wss.on("connection", (ws, req) => {
             break;
           }
           try {
+            console.log("we voted ");
             await GameManager.castVote(lobbyId, playerId, targetId);
+            console.log("vote worked");
           } catch (err) {
             sendError(ws, "vote_cast_failed");
             break;
@@ -185,11 +189,8 @@ wss.on("connection", (ws, req) => {
               msg: { lobbyId, votes: results },
             });
 
-            await GameManager.incrementVotingRound(lobbyId);
-            const numOfPlayersLeft =
-              await GameManager.playersLeftInGame(lobbyId);
+            await GameManager.playersLeftInGame(lobbyId);
 
-            console.log(`num of players left is ${numOfPlayersLeft}`);
             console.table(results);
             const top = results[0];
             const second = results[1];
@@ -202,7 +203,7 @@ wss.on("connection", (ws, req) => {
             );
 
             if (hasMajority) {
-              await GameManager.playerVotedOut(top.id, lobbyId);
+              await GameManager.playerVotedOut(lobbyId, top.id);
 
               const numOfPlayersLeft =
                 await GameManager.playersLeftInGame(lobbyId);
@@ -227,6 +228,7 @@ wss.on("connection", (ws, req) => {
                   await GameManager.resetLobbyVotingRound(lobbyId);
                   break;
                 } else {
+                  await GameManager.incrementVotingRound(lobbyId);
                   broadCastToLobby(lobbyId, {
                     type: "playerVotedOut",
                     msg: { playerId: top.id, isImposter: top.isImposter },
@@ -235,6 +237,7 @@ wss.on("connection", (ws, req) => {
                 }
               }
             } else {
+              await GameManager.incrementVotingRound(lobbyId);
               broadCastToLobby(lobbyId, {
                 type: "nobodyVotedOut",
                 msg: { lobbyId },
@@ -295,6 +298,15 @@ wss.on("connection", (ws, req) => {
             }
           } catch (err) {
             sendError(ws, "start_game_failed");
+          }
+          break;
+        }
+        case "playerBackInLobby": {
+          if (clientInfo.lobbyId) {
+            broadCastToLobby(clientInfo.lobbyId, {
+              type: "playerBackInLobby",
+              msg: { playerId: clientInfo.playerId },
+            });
           }
           break;
         }

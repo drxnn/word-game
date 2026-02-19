@@ -141,12 +141,16 @@ class _GameManager {
       throw new Error("Something went wrong, could not cast vote ");
     }
 
-    let votedPlayer = await playersModel.votePlayer(voterId, targetId, lobbyId);
-    if (!votedPlayer) {
-      throw new Error("Failed to cast vote");
+    try {
+      let votedPlayer = await playersModel.votePlayer(
+        voterId,
+        targetId,
+        lobbyId,
+      );
+      return votedPlayer;
+    } catch (err) {
+      throw err;
     }
-
-    return votedPlayer;
   }
 
   async countVotes(lobbyId: string) {

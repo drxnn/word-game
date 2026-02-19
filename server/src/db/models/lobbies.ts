@@ -39,14 +39,16 @@ export async function setImposterKnows(lobbyId: string, flag: boolean) {
 
 export async function incrementVotingRound(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
-  return await query(
+  const result = await query(
     `
     UPDATE lobbies 
     SET voting_round = voting_round + 1 
     WHERE id = $1
+    RETURNING voting_round
     `,
     [lobbyId],
   );
+  return result.rows[0].voting_round;
 }
 
 export async function resetLobbyVotingRound(lobbyId: string) {

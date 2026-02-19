@@ -13,7 +13,8 @@ import {
 } from "@/lib/types";
 import { sendWsMessage, startWsConnection } from "@/services/ws";
 import Game from "./Game";
-import ErrorAlert from "./NotificationAlert";
+
+import NotificationAlert from "./NotificationAlert";
 
 type AlertState = {
   type: "error" | "success" | "info";
@@ -30,6 +31,7 @@ export default function HomePage() {
   const [voting, setVoting] = useState(false);
   const [notificationAlert, setNotificationAlert] = useState<AlertState>(null);
   const [gameOver, setGameOver] = useState(false);
+
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
   const [options, setOptions] = useState<GameOptions>({
@@ -60,6 +62,42 @@ export default function HomePage() {
     }
   }, [notificationAlert]);
 
+  const handleExitToLobby = () => {
+    console.log("exiting to lobby");
+    // need to tell others that player is back in lobby,
+    setLobby((p) => ({
+      ...p,
+      player: { ...p.player, isImposter: false, votes: 0, assignedWord: "" },
+      lobby: {
+        ...p.lobby,
+        wordPairId: "",
+        votingRound: p.lobby.votingRound + 1,
+        gameStarted: false,
+      },
+      players: p.players.map((x) => ({
+        ...x,
+        votes: 0,
+        votedOut: false,
+        inLobby: x.id === p.player.id ? true : x.inLobby,
+      })),
+    }));
+
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      sendWsMessage(
+        {
+          type: "playerBackInLobby",
+          msg: { playerId: lobby.player.id },
+        },
+        ws.current,
+      );
+    }
+
+    console.log(`game started is : ${lobby.lobby.gameStarted}`);
+    setGameOver(false);
+    setVoted(false);
+    setVoteState("idle");
+  };
+
   useEffect(() => {
     console.log(`lobby is : ${lobby}`);
     ws.current = startWsConnection();
@@ -87,7 +125,10 @@ export default function HomePage() {
           const newPlayer = parsed.data.msg as PlayerForLobbyType;
           setLobby((p) => ({
             ...p,
-            players: [...p.players, { ...newPlayer, votes: 0 }],
+            players: [
+              ...p.players,
+              { ...newPlayer, votes: 0, votedOut: false, inLobby: true },
+            ],
           }));
           break;
         }
@@ -102,6 +143,7 @@ export default function HomePage() {
               assignedWord: playerInfo.assignedWord,
               isImposter: playerInfo.isImposter,
             },
+            players: p.players.map((x) => ({ ...x, inLobby: false })),
           }));
           break;
         }
@@ -116,7 +158,7 @@ export default function HomePage() {
           break;
         }
         case "playerVoted": {
-          const { targetId } = parsed.data.msg; // who voted for who
+          const { targetId } = parsed.data.msg;
 
           setLobby((p) => ({
             ...p,
@@ -148,10 +190,26 @@ export default function HomePage() {
           if (playerId) {
             setLobby((p) => ({
               ...p,
-              players: p.players.filter((x) => x.id !== playerId),
+              players: p.players.map((x) => {
+                if (x.id === playerId) {
+                  return { ...x, votedOut: true };
+                } else {
+                  return x;
+                }
+              }),
             }));
           }
 
+          break;
+        }
+        case "playerBackInLobby": {
+          const { playerId } = parsed.data.msg;
+          setLobby((p) => ({
+            ...p,
+            players: p.players.map((x) =>
+              x.id === playerId ? { ...x, inLobby: true } : x,
+            ),
+          }));
           break;
         }
         case "voteState": {
@@ -169,7 +227,9 @@ export default function HomePage() {
         }
         case "gameOver": {
           const { lastPlayerToBeVotedOutId, winner } = parsed.data.msg;
+          console.log("we are inside game over");
 
+          setGameOver(true);
           let votedOutPlayerName: string | undefined;
           setLobby((p) => {
             votedOutPlayerName = p.players.find(
@@ -177,9 +237,13 @@ export default function HomePage() {
             )?.name;
             return {
               ...p,
-              players: p.players.filter(
-                (x) => x.id !== lastPlayerToBeVotedOutId,
-              ),
+              players: p.players.map((x) => {
+                if (x.id === lastPlayerToBeVotedOutId) {
+                  return { ...x, votedOut: true };
+                } else {
+                  return x;
+                }
+              }),
             };
           });
           if (winner === "allies") {
@@ -194,7 +258,6 @@ export default function HomePage() {
             });
           }
 
-          setGameOver(true);
           // reset state of lobby after 2 seconds. (show players exit to lobby button)
           break;
         }
@@ -235,8 +298,8 @@ export default function HomePage() {
           return {
             ...p,
             lobby: result.lobby,
-            player: { ...result.player, isHost: result.player?.isHost }, // fix later camel to camel case consistent
-            players: [result.player],
+            player: { ...result.player, isHost: result.player?.isHost },
+            players: [{ ...result.player, inLobby: true }],
           };
         });
         const messageToSend = {
@@ -269,16 +332,13 @@ export default function HomePage() {
     }
   };
 
-  const handleLeaveLobby = () => {
-    // leave lobby, only when player exits by themselves, closing browser won't do it,
-  };
+  // const handleLeaveLobby = () => {
+  //   // leave lobby, only when player exits by themselves, closing browser won't do it,
+  //   // exit lobby button
+  // };
 
   const handleStartGame = () => {
     if (lobby.lobby.id) {
-      setLobby((p) => ({
-        ...p,
-        lobby: { ...p.lobby },
-      }));
       const messageToSend = {
         type: "startGame",
         msg: {
@@ -301,7 +361,7 @@ export default function HomePage() {
 
         setLobby({
           player: result.player,
-          players: result.players,
+          players: result.players.map((p) => ({ ...p, inLobby: true })),
           lobby: result.lobby,
         });
 
@@ -347,144 +407,147 @@ export default function HomePage() {
     }
   };
 
-  if (lobby?.lobby && lobby.lobby.gameStarted) {
-    return (
-      <Game
-        players={lobby.players}
-        currentPlayer={lobby.player}
-        isHost={lobby.player?.isHost}
-        handleVotePlayer={handleVotePlayer}
-        votesCounted={votesCounted}
-        voting={voting}
-        voted={voted}
-        wsRef={ws}
-        voteState={voteState}
-      />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-12">
-          <h1 className="text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-            Word Imposter
-          </h1>
-          <p className="text-gray-600 text-lg"></p>
-        </div>
-        {notificationAlert ? <ErrorAlert alert={notificationAlert} /> : null}
+    <>
+      {notificationAlert && <NotificationAlert alert={notificationAlert} />}
 
-        {lobby.lobby ? (
-          <Lobby
-            lobby={lobby}
-            player={lobby.player}
-            handleStartGame={handleStartGame}
-          />
-        ) : (
-          <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
-            <div className="space-y-6">
-              {/* Name Input */}
-              <div className="space-y-2">
-                <label
-                  htmlFor="playerName"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Your Name
-                </label>
-                <input
-                  id="playerName"
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && playerName.trim()) {
-                      handleCreateLobby();
-                    }
-                  }}
-                />
-              </div>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-12">
+            <h1 className="text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+              Word Imposter
+            </h1>
+            <p className="text-gray-600 text-lg"></p>
+          </div>
 
-              {/* Buttons */}
-              <div className="space-y-3">
-                <Button
-                  onClick={handleCreateLobby}
-                  disabled={!playerName.trim()}
-                  className="w-full py-6 text-base font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
-                >
-                  Create Lobby
-                </Button>
-
-                {!showJoinInput ? (
-                  <Button
-                    onClick={handleJoinLobbyClick}
-                    disabled={!playerName.trim()}
-                    variant="outline"
-                    className="w-full py-6 text-base font-semibold text-purple-700 border-2 border-purple-600 hover:bg-purple-50 transform transition-all hover:scale-105 active:scale-95"
+          {lobby.lobby ? (
+            lobby.lobby && lobby.lobby.gameStarted ? (
+              <Game
+                players={lobby.players}
+                currentPlayer={lobby.player}
+                isHost={lobby.player?.isHost}
+                handleVotePlayer={handleVotePlayer}
+                votesCounted={votesCounted}
+                gameOver={gameOver}
+                voting={voting}
+                voted={voted}
+                wsRef={ws}
+                voteState={voteState}
+                handleExitToLobby={handleExitToLobby}
+              />
+            ) : (
+              <Lobby
+                lobby={lobby}
+                player={lobby.player}
+                handleStartGame={handleStartGame}
+              />
+            )
+          ) : (
+            <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
+              <div className="space-y-6">
+                {/* Name Input */}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="playerName"
+                    className="block text-sm font-medium text-gray-700"
                   >
-                    Join Lobby
-                  </Button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="lobbyCode"
-                        className="block text-sm font-medium text-gray-700"
-                      >
-                        Lobby Code
-                      </label>
-                      <input
-                        id="lobbyCode"
-                        type="text"
-                        value={lobbyCode}
-                        onChange={(e) =>
-                          setLobbyCode(e.target.value.toUpperCase())
-                        }
-                        placeholder="Enter lobby code"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all uppercase"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && lobbyCode.trim()) {
-                            handleJoinLobby();
-                          }
-                        }}
-                        autoFocus
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => {
-                          setShowJoinInput(false);
-                          setLobbyCode("");
-                        }}
-                        variant="outline"
-                        className="flex-1 py-6 text-base font-semibold transform transition-all hover:scale-105 active:scale-95"
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        onClick={handleJoinLobby}
-                        disabled={!lobbyCode.trim()}
-                        className="flex-1 py-6 text-base font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
-                      >
-                        Join
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                    Your Name
+                  </label>
+                  <input
+                    id="playerName"
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && playerName.trim()) {
+                        handleCreateLobby();
+                      }
+                    }}
+                  />
+                </div>
 
-              {/* Game Info */}
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-500 text-center leading-relaxed">
-                  Everyone gets the same word except one imposter. Give hints
-                  and find who's faking it!
-                </p>
+                {/* Buttons */}
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleCreateLobby}
+                    disabled={!playerName.trim()}
+                    className="w-full py-6 text-base font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+                  >
+                    Create Lobby
+                  </Button>
+
+                  {!showJoinInput ? (
+                    <Button
+                      onClick={handleJoinLobbyClick}
+                      disabled={!playerName.trim()}
+                      variant="outline"
+                      className="w-full py-6 text-base font-semibold text-purple-700 border-2 border-purple-600 hover:bg-purple-50 transform transition-all hover:scale-105 active:scale-95"
+                    >
+                      Join Lobby
+                    </Button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <label
+                          htmlFor="lobbyCode"
+                          className="block text-sm font-medium text-gray-700"
+                        >
+                          Lobby Code
+                        </label>
+                        <input
+                          id="lobbyCode"
+                          type="text"
+                          value={lobbyCode}
+                          onChange={(e) =>
+                            setLobbyCode(e.target.value.toUpperCase())
+                          }
+                          placeholder="Enter lobby code"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all uppercase"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && lobbyCode.trim()) {
+                              handleJoinLobby();
+                            }
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            setShowJoinInput(false);
+                            setLobbyCode("");
+                          }}
+                          variant="outline"
+                          className="flex-1 py-6 text-base font-semibold transform transition-all hover:scale-105 active:scale-95"
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          onClick={handleJoinLobby}
+                          disabled={!lobbyCode.trim()}
+                          className="flex-1 py-6 text-base font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+                        >
+                          Join
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Game Info */}
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 text-center leading-relaxed">
+                    Everyone gets the same word except one imposter. Give hints
+                    and find who's faking it!
+                  </p>
+                </div>
               </div>
-            </div>
-          </Card>
-        )}
+            </Card>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

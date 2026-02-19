@@ -77,7 +77,7 @@ export const playerForLobbySchema = PlayerSchema.pick({
   name: true,
   lobbyId: true,
   id: true,
-}).extend({ votes: z.number() });
+}).extend({ votes: z.number(), votedOut: z.boolean(), inLobby: z.boolean() });
 
 export const endGameSchema = z.object({
   lobbyId: z.uuid(),
@@ -110,6 +110,7 @@ export const WordPairSchema = z.object({
 // export type VoteResult = z.infer<typeof VoteResultSchema>;
 
 export const ServerToClientMapSchema = z.object({
+  playerBackInLobby: ClientInfoSchema.pick({ playerId: true }),
   lobbyCreated: z.object({ lobbyId: z.uuid() }),
   playerJoined: z.object({
     id: z.uuid(),
@@ -212,6 +213,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
     msg: ClientToServerMapSchema.shape.voteState,
   }),
   z.object({
+    type: z.literal("playerBackInLobby"),
+    msg: ServerToClientMapSchema.shape.playerBackInLobby,
+  }),
+  z.object({
     type: z.literal("lobbyCreated"),
     msg: ServerToClientMapSchema.shape.lobbyCreated,
   }),
@@ -282,6 +287,10 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("voteState"),
     msg: ClientToServerMapSchema.shape.voteState,
+  }),
+  z.object({
+    type: z.literal("playerBackInLobby"),
+    msg: ServerToClientMapSchema.shape.playerBackInLobby,
   }),
   z
     .object({

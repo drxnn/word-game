@@ -34,7 +34,6 @@ export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
               </p>
             </div>
 
-            {/* Players List */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-800 flex items-center justify-between">
                 <span>Players</span>
@@ -66,21 +65,31 @@ export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
                         )}
                       </p>
                     </div>
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    {pl.inLobby ? (
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    ) : (
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Start Game Button */}
+
             <div className="pt-4">
-              <Button
-                onClick={handleStartGame}
-                disabled={lobby.players.length < 3}
-                className="w-full py-6 text-base font-semibold bg-gradient-to-r from-slate-700 to-indigo-700 hover:from-slate-800 hover:to-indigo-800 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
-              >
-                Start Game
-              </Button>
+              {player.isHost && (
+                <Button
+                  onClick={handleStartGame}
+                  disabled={
+                    lobby.players.length < 3 ||
+                    lobby.players.some((pl) => !pl.inLobby)
+                  }
+                  className="w-full py-6 text-base font-semibold bg-gradient-to-r from-slate-700 to-indigo-700 hover:from-slate-800 hover:to-indigo-800 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+                >
+                  Start Game
+                </Button>
+              )}
               {lobby.players.length < 3 && (
                 <p className="text-xs text-slate-500 text-center mt-2">
                   Need at least 3 players to start
