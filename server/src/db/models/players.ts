@@ -100,6 +100,7 @@ RETURNING *
     `,
     [playerId, lobbyId],
   );
+  if (!result.rows[0]) throw new Error("Player not found or already voted out");
   return result.rows[0];
 }
 export async function countVotes(lobbyId: string) {

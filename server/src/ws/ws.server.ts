@@ -74,6 +74,7 @@ wss.on("connection", (ws, req) => {
               lobbyId: parsed.data.msg.lobbyId,
               name: parsed.data.msg.name,
               playerId: parsed.data.msg.playerId,
+              code: parsed.data.msg.code,
             },
             clientId,
           );
@@ -114,15 +115,11 @@ wss.on("connection", (ws, req) => {
         }
 
         case "leaveLobby": {
-          clientInfo = addToClientInfo(
-            ws,
-            { code: parsed.data.msg.code },
-            clientId,
-          );
           if (!clientInfo.lobbyId || !clientInfo.playerId) {
             sendError(ws, "missing required info");
             break;
           }
+
           if (typeof clientInfo.code !== "string") break;
           try {
             await GameManager.leaveLobby({
@@ -263,11 +260,7 @@ wss.on("connection", (ws, req) => {
             sendError(ws, "lobby id is missing");
             break;
           }
-          const players = await GameManager.getAllPlayers(clientInfo.lobbyId);
-          if (!players || players.length === 0) {
-            sendError(ws, "players array is empty");
-            break;
-          }
+
           try {
             await GameManager.startGame(clientInfo.lobbyId, clientInfo.options);
             const players = await GameManager.getAllPlayers(clientInfo.lobbyId);
@@ -275,6 +268,7 @@ wss.on("connection", (ws, req) => {
               sendError(ws, "players array is empty");
               break;
             }
+
             const sockets = lobbyToSockets.get(clientInfo.lobbyId);
             if (sockets) {
               for (const s of sockets) {

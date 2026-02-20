@@ -119,7 +119,8 @@ class _GameManager {
   async startGame(lobbyId: string, options?: GameOptions) {
     //
     if (!lobbyId) throw new Error("Lobby id is required");
-
+    await lobbiesModel.resetLobbyVotingRound(lobbyId);
+    await lobbiesModel.clearVotes(lobbyId);
     const imposterKnows = options?.imposterKnows ?? false;
     const round = await lobbiesModel.incrementVotingRound(lobbyId);
     await lobbiesModel.setImposterKnows(lobbyId, imposterKnows);
@@ -184,6 +185,7 @@ class _GameManager {
     const result = await playersModel.playerVotedOut(lobbyId, playerId);
     return result;
   }
+
   async haveAllPlayersVoted(lobbyId: string, votingRound: number) {
     const result = await lobbiesModel.haveAllPlayersVoted(lobbyId, votingRound);
 

@@ -113,6 +113,7 @@ export const ServerToClientMapSchema = z.object({
   }),
   gameOver: ClientInfoSchema.pick({
     lobbyId: true,
+    name: true,
   }).extend({
     lastPlayerToBeVotedOutId: z.uuid(),
     winner: z.union([z.literal("imposter"), z.literal("allies")]),

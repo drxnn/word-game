@@ -48,7 +48,7 @@ export async function incrementVotingRound(lobbyId: string) {
     `,
     [lobbyId],
   );
-  return result.rows[0].voting_round;
+  return result.rows[0].votingRound;
 }
 
 export async function resetLobbyVotingRound(lobbyId: string) {
@@ -76,6 +76,8 @@ UPDATE lobbies SET voting_round = 0, word_pair_id = NULL WHERE id=$1
       `,
       [lobbyId],
     );
+
+    await client.query(`DELETE FROM votes WHERE lobby_id = $1`, [lobbyId]); // delete votes- might change later if history is needed
 
     await client.query("COMMIT");
   } catch (err) {
@@ -162,4 +164,9 @@ export async function haveAllPlayersVoted(
     `total players is ${totalPlayers} and totalvotes is ${totalVotes}`,
   );
   return Number(totalVotes) == Number(totalPlayers);
+}
+
+export async function clearVotes(lobbyId: string) {
+  if (!lobbyId) throw new Error("Lobby ID is required");
+  await query(`DELETE FROM votes WHERE lobby_id = $1`, [lobbyId]);
 }

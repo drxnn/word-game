@@ -1,0 +1,118 @@
+import { LobbyAction, LobbyType } from "@/lib/types";
+
+export function lobbyReducer(state: LobbyType, action: LobbyAction) {
+  const { type } = action;
+
+  switch (type) {
+    case "PLAYER_JOINED": {
+      return {
+        ...state,
+        players: [
+          ...state.players,
+          { ...action.payload, votes: 0, votedOut: false, inLobby: true },
+        ],
+      };
+    }
+    case "PLAYER_LEFT": {
+      return {
+        ...state,
+        players: state.players.filter(
+          (pl) => pl.id !== action.payload.playerId,
+        ),
+      };
+    }
+    case "PLAYER_VOTED": {
+      return {
+        ...state,
+        players: state.players.map((pl) => {
+          return pl.id === action.payload.targetId
+            ? { ...pl, votes: pl.votes + 1 }
+            : pl;
+        }),
+      };
+    }
+    case "EXIT_TO_LOBBY": {
+      return {
+        ...state,
+        lobby: {
+          ...state.lobby,
+          wordPairId: "",
+          votingRound: state.lobby.votingRound + 1,
+          gameStarted: false,
+        },
+        player: {
+          ...state.player,
+          isImposter: false,
+          votes: 0,
+          assignedWord: "",
+        },
+        players: state.players.map((x) => ({
+          ...x,
+          votes: 0,
+          votedOut: false,
+          inLobby: x.id === state.player.id ? true : x.inLobby,
+        })),
+      };
+    }
+    case "PLAYER_INFO": {
+      return {
+        ...state,
+        lobby: { ...state.lobby, gameStarted: true },
+        player: {
+          ...state.player,
+          assignedWord: action.payload.assignedWord,
+          isImposter: action.payload.isImposter,
+        },
+        players: state.players.map((x) => ({ ...x, inLobby: false })),
+      };
+    }
+    case "GAME_OVER": {
+      return {
+        ...state,
+        players: state.players.map((x) => {
+          if (x.id === action.payload.lastPlayerToBeVotedOutId) {
+            return { ...x, votedOut: true };
+          } else {
+            return x;
+          }
+        }),
+      };
+    }
+    case "PLAYER_BACK_IN_LOBBY": {
+      return {
+        ...state,
+        players: state.players.map((x) =>
+          x.id === action.payload.playerId ? { ...x, inLobby: true } : x,
+        ),
+      };
+    }
+    case "PLAYER_VOTED_OUT": {
+      return {
+        ...state,
+        players: state.players.map((x) => {
+          if (x.id === action.payload.playerId) {
+            return { ...x, votedOut: true };
+          } else {
+            return x;
+          }
+        }),
+      };
+    }
+    case "SET_LOBBY": {
+      return { ...action.payload };
+    }
+    case "VOTES_COUNTED": {
+      return {
+        ...state,
+        players: state.players.map((x) => {
+          const match = action.payload.votes.find((v) => v.id === x.id);
+
+          return match ? { ...x, votes: +match.voteCount } : x;
+        }),
+      };
+    }
+    case "RESET": {
+      return {} as LobbyType;
+    }
+  }
+}

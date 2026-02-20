@@ -1,6 +1,32 @@
 import { z } from "zod";
 
 // this file is a copy from the backend. will extract it to a shared library later
+
+export type LobbyAction =
+  | { type: "PLAYER_JOINED"; payload: PlayerForLobbyType }
+  | { type: "PLAYER_LEFT"; payload: { playerId: string } }
+  | { type: "PLAYER_VOTED_OUT"; payload: { playerId: string } }
+  | { type: "PLAYER_BACK_IN_LOBBY"; payload: { playerId: string } }
+  | { type: "PLAYER_VOTED"; payload: { targetId: string } }
+  | {
+      type: "VOTES_COUNTED";
+      payload: { votes: { id: string; voteCount: number }[] };
+    }
+  | {
+      type: "PLAYER_INFO";
+      payload: { assignedWord: string; isImposter: boolean };
+    }
+  | { type: "GAME_OVER"; payload: { lastPlayerToBeVotedOutId: string } }
+  | { type: "EXIT_TO_LOBBY" }
+  | { type: "SET_LOBBY"; payload: LobbyType }
+  | { type: "RESET" };
+
+export type AlertState = {
+  type: "error" | "success" | "info";
+  message: string;
+  title?: string;
+} | null;
+
 export const PlayerSchema = z.object({
   id: z.uuid(),
   name: z.string().min(2).max(20).trim(),
@@ -77,7 +103,12 @@ export const playerForLobbySchema = PlayerSchema.pick({
   name: true,
   lobbyId: true,
   id: true,
-}).extend({ votes: z.number(), votedOut: z.boolean(), inLobby: z.boolean() });
+}).extend({
+  votes: z.number(),
+  votedOut: z.boolean(),
+  inLobby: z.boolean(),
+  playerLeft: z.boolean().optional(),
+});
 
 export const endGameSchema = z.object({
   lobbyId: z.uuid(),
@@ -131,6 +162,7 @@ export const ServerToClientMapSchema = z.object({
   }),
   gameOver: ClientInfoSchema.pick({
     lobbyId: true,
+    name: true,
   }).extend({
     lastPlayerToBeVotedOutId: z.uuid(),
     winner: z.union([z.literal("imposter"), z.literal("allies")]),
@@ -188,11 +220,6 @@ export const ClientToServerMapSchema = z.object({
   leaveLobby: z.object({
     lobbyId: z.uuid(),
     playerId: z.uuid(),
-    code: z
-      .string()
-      .regex(/^[A-Z0-9]+$/)
-      .trim()
-      .optional(),
   }),
   votePlayer: z.object({
     lobbyId: z.uuid(),
