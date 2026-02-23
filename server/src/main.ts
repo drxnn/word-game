@@ -3,16 +3,40 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import http from "http";
+import session from "express-session";
+import pgSimple from "connect-pg-simple";
 
 import apiRouter from "./routes/index";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler } from "./middlewares/errorHandler";
+import { pool } from "./db/index";
 
 export const app = express();
 export const server = http.createServer(app);
 import "./ws/ws.server";
 
-app.use(cors());
+const pgStore = pgSimple(session);
+
+export const sessionStore = new pgStore({
+  pool: pool,
+  tableName: "sessions",
+  ttl: 10800,
+});
+app.use(
+  session({
+    store: sessionStore,
+
+    secret: process.env.SESSION_SECRET!,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 3,
+    },
+  }),
+);
+app.use(cors({ credentials: true, origin: "http://localhost:5173" }));
 app.use(express.json());
 
 app.get("/ping", (req, res) => res.send("pong"));

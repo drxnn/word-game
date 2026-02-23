@@ -5,6 +5,10 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
 
   switch (type) {
     case "PLAYER_JOINED": {
+      const alreadyExists = state.players.some(
+        (pl) => pl.id === action.payload.id,
+      );
+      if (alreadyExists) return state;
       return {
         ...state,
         players: [

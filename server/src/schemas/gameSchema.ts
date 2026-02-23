@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+export enum GameStatus {
+  idle = "IDLE",
+  started = "STARTED",
+  voted = "VOTED",
+  voting = "VOTING",
+  gameOver = "GAME_OVER",
+}
+
 export const PlayerSchema = z.object({
   id: z.uuid(),
   name: z.string().min(2).max(20).trim(),
@@ -9,6 +17,12 @@ export const PlayerSchema = z.object({
   assignedWord: z.string().max(50).trim(),
   votes: z.number(),
 });
+export const playerVoteResultSchema = PlayerSchema.pick({
+  name: true,
+  id: true,
+  isImposter: true,
+}).extend({ voteCount: z.number() });
+export type PlayerVoteResult = z.infer<typeof playerVoteResultSchema>;
 
 export const LobbySchema = z.object({
   id: z.uuid(),
@@ -39,6 +53,7 @@ export const ClientInfoSchema = z.object({
   clientId: z.uuid().optional(),
   targetId: z.uuid().optional(),
   name: z.string().trim().max(50).optional(),
+  sessionId: z.string().optional(),
   code: z
     .string()
     .trim()
@@ -99,6 +114,30 @@ export const WordPairSchema = z.object({
 
 export const ServerToClientMapSchema = z.object({
   playerBackInLobby: ClientInfoSchema.pick({ playerId: true }),
+  playerReconnected: z.object({
+    player: PlayerSchema.pick({
+      name: true,
+      id: true,
+      assignedWord: true,
+      isImposter: true,
+      isHost: true,
+      lobbyId: true,
+      votes: true,
+    }),
+    gameStatus: z.enum(GameStatus),
+  }),
+  reconnected: z.object({
+    player: PlayerSchema.pick({
+      name: true,
+      id: true,
+      assignedWord: true,
+      isImposter: true,
+      isHost: true,
+    }),
+    lobby: LobbySchema,
+    players: PlayerSchema.array(),
+    gameStatus: z.enum(GameStatus).nullable(),
+  }),
   lobbyCreated: z.object({ lobbyId: z.uuid() }),
   playerJoined: z.object({
     id: z.uuid(),
@@ -117,6 +156,7 @@ export const ServerToClientMapSchema = z.object({
   }).extend({
     lastPlayerToBeVotedOutId: z.uuid(),
     winner: z.union([z.literal("imposter"), z.literal("allies")]),
+    gameStatus: GameStatus,
   }),
   playerVoted: ClientInfoSchema.pick({
     name: true,
@@ -129,14 +169,8 @@ export const ServerToClientMapSchema = z.object({
   startGameInfo: z.array(PlayerSchema),
   votesCounted: z.object({
     lobbyId: z.uuid(),
-    votes: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        isImposter: z.boolean(),
-        voteCount: z.string(),
-      }),
-    ),
+    votes: z.array(playerVoteResultSchema),
+    gameStatus: GameStatus,
   }),
   roundEnded: z.array(PlayerSchema),
   gameStarted: z.array(PlayerSchema),
@@ -193,6 +227,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerBackInLobby"),
     msg: ServerToClientMapSchema.shape.playerBackInLobby,
+  }),
+  z.object({
+    type: z.literal("playerReconnected"),
+    msg: ServerToClientMapSchema.shape.playerReconnected,
   }),
   z.object({
     type: z.literal("lobbyCreated"),

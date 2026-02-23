@@ -7,6 +7,7 @@ import {
   AlertState,
   ClientToServer,
   GameOptions,
+  GameStatus,
   LobbyType,
   VoteState,
 } from "@/lib/types";
@@ -24,39 +25,39 @@ export default function HomePage() {
   const [voted, setVoted] = useState(false);
   const [voting, setVoting] = useState(false);
   const [notificationAlert, setNotificationAlert] = useState<AlertState>(null);
-  const [gameOver, setGameOver] = useState(false);
+  const [inGame, setInGame] = useState(false);
+
   const [winner, setWinner] = useState<"allies" | "imposter" | null>(null);
   const [lobby, lobbyDispatch] = useReducer(lobbyReducer, {} as LobbyType);
+  const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.idle);
 
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [lobbyCode, setLobbyCode] = useState("");
   const [options, setOptions] = useState<GameOptions>({
-    imposterKnows: false,
+    imposterHint: false,
     numOfImposters: 1, // default
   });
 
   const { ws, sendWhenReady } = useWebSocket({
-    setGameOver,
     setNotificationAlert,
     setVoted,
     setVotesCounted,
     setVoteState,
     setWinner,
     lobbyDispatch,
+    setGameStatus,
+    setInGame,
   });
 
   useEffect(() => {
     if (!votesCounted) return;
 
-    // 3 seconds to show player that was kicked out, then reset
     const timer = setTimeout(() => {
       setVotesCounted(false);
     }, 3000);
 
     return () => clearTimeout(timer);
   }, [votesCounted]);
-
-  //extract into custon hook later, extract logic into handlers
 
   useEffect(() => {
     if (notificationAlert) {
@@ -69,7 +70,6 @@ export default function HomePage() {
 
   const handleExitToLobby = () => {
     console.log("exiting to lobby");
-    // need to tell others that player is back in lobby,
 
     lobbyDispatch({ type: "EXIT_TO_LOBBY" }); // 1
 
@@ -78,11 +78,12 @@ export default function HomePage() {
       msg: { playerId: lobby.player.id },
     });
 
-    console.log(`game started is : ${lobby.lobby.gameStarted}`);
-    setGameOver(false);
     setVoted(false);
     setVoteState("idle");
+    setVoting(false);
     setWinner(null);
+    setInGame(false);
+    setGameStatus(GameStatus.idle);
   };
 
   const handleCreateLobby = async () => {
@@ -112,7 +113,6 @@ export default function HomePage() {
         sendWhenReady(messageToSend);
 
         console.log(`player is ${lobby.player}`);
-        // need to now establish a ws connection to the backend for subsequent messages
         console.log("creation was successful");
         console.log(result);
       } catch (err) {
@@ -137,9 +137,10 @@ export default function HomePage() {
     });
 
     lobbyDispatch({ type: "RESET" });
-    setGameOver(false);
+
     setVoted(false);
     setVoteState("idle");
+    setInGame(false);
     setWinner(null);
   };
 
@@ -152,7 +153,8 @@ export default function HomePage() {
           options: options,
         },
       } as ClientToServer;
-
+      setGameStatus(GameStatus.started);
+      setInGame(true);
       sendWhenReady(messageToSend);
     }
   };
@@ -164,7 +166,6 @@ export default function HomePage() {
           name: playerName,
           code: lobbyCode,
         })) as LobbyType;
-        // result is {player, players[], lobby}
 
         lobbyDispatch({
           type: "SET_LOBBY",
@@ -183,6 +184,7 @@ export default function HomePage() {
             code: lobbyCode,
           },
         } as ClientToServer;
+        console.log("sending join");
         sendWhenReady(messageToSend);
       } catch (err) {
         console.log(err);
@@ -191,7 +193,6 @@ export default function HomePage() {
   };
 
   const handleVotePlayer = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    // get targetId from data-attribute of button?
     if (voted || voting) return;
     setVoting(true);
     try {
@@ -206,6 +207,7 @@ export default function HomePage() {
         },
       } as ClientToServer;
       sendWhenReady(messageToSend);
+      setGameStatus(GameStatus.voting);
       setVoted(true);
     } finally {
       setVoting(false);
@@ -216,31 +218,32 @@ export default function HomePage() {
     <>
       {notificationAlert && <NotificationAlert alert={notificationAlert} />}
 
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-indigo-50 to-slate-100 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-12">
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-              Word Imposter
+            <h1 className="text-6xl font-bold bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-800 bg-clip-text text-transparent mb-2">
+              Codeword
             </h1>
-            <p className="text-gray-600 text-lg"></p>
+            <p className="text-slate-500 text-lg"></p>
           </div>
 
           {lobby.lobby ? (
             <>
-              {lobby.lobby && lobby.lobby.gameStarted ? (
+              {inGame ? (
                 <Game
                   players={lobby.players}
                   currentPlayer={lobby.player}
                   isHost={lobby.player?.isHost}
                   handleVotePlayer={handleVotePlayer}
                   votesCounted={votesCounted}
-                  gameOver={gameOver}
-                  voting={voting}
+                  inGame={inGame}
                   voted={voted}
+                  voting={voting}
                   wsRef={ws}
                   voteState={voteState}
                   handleExitToLobby={handleExitToLobby}
                   winner={winner}
+                  gameStatusState={{ gameStatus, setGameStatus }}
                 />
               ) : (
                 <Lobby
@@ -252,7 +255,7 @@ export default function HomePage() {
               <Button
                 onClick={handleLeaveLobby}
                 variant="outline"
-                className="w-full mt-4 py-6 text-base font-semibold border-2 border-slate-400 text-slate-600 hover:bg-slate-100 transform transition-all hover:scale-105 active:scale-95"
+                className="w-full mt-14 py-6 text-lg font-semibold bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"
               >
                 Exit Lobby
               </Button>
@@ -264,7 +267,7 @@ export default function HomePage() {
                 <div className="space-y-2">
                   <label
                     htmlFor="playerName"
-                    className="block text-sm font-medium text-gray-700"
+                    className="block text-sm font-medium text-slate-700"
                   >
                     Your Name
                   </label>
@@ -274,7 +277,7 @@ export default function HomePage() {
                     value={playerName}
                     onChange={(e) => setPlayerName(e.target.value)}
                     placeholder="Enter your name"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && playerName.trim()) {
                         handleCreateLobby();
@@ -288,7 +291,7 @@ export default function HomePage() {
                   <Button
                     onClick={handleCreateLobby}
                     disabled={!playerName.trim()}
-                    className="w-full py-6 text-base font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+                    className="w-full py-6 text-base font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
                   >
                     Create Lobby
                   </Button>
@@ -298,7 +301,7 @@ export default function HomePage() {
                       onClick={handleJoinLobbyClick}
                       disabled={!playerName.trim()}
                       variant="outline"
-                      className="w-full py-6 text-base font-semibold text-purple-700 border-2 border-purple-600 hover:bg-purple-50 transform transition-all hover:scale-105 active:scale-95"
+                      className="w-full py-6 text-base font-semibold text-indigo-700 border-2 border-indigo-500 hover:bg-indigo-50 transform transition-all hover:scale-105 active:scale-95"
                     >
                       Join Lobby
                     </Button>
@@ -307,7 +310,7 @@ export default function HomePage() {
                       <div className="space-y-2">
                         <label
                           htmlFor="lobbyCode"
-                          className="block text-sm font-medium text-gray-700"
+                          className="block text-sm font-medium text-slate-700"
                         >
                           Lobby Code
                         </label>
@@ -319,7 +322,7 @@ export default function HomePage() {
                             setLobbyCode(e.target.value.toUpperCase())
                           }
                           placeholder="Enter lobby code"
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all uppercase"
+                          className="w-full px-4 py-3 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all uppercase"
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && lobbyCode.trim()) {
                               handleJoinLobby();
@@ -335,14 +338,14 @@ export default function HomePage() {
                             setLobbyCode("");
                           }}
                           variant="outline"
-                          className="flex-1 py-6 text-base font-semibold transform transition-all hover:scale-105 active:scale-95"
+                          className="flex-1 py-6 text-base font-semibold border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 transform transition-all hover:scale-105 active:scale-95"
                         >
                           Back
                         </Button>
                         <Button
                           onClick={handleJoinLobby}
                           disabled={!lobbyCode.trim()}
-                          className="flex-1 py-6 text-base font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+                          className="flex-1 py-6 text-base font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
                         >
                           Join
                         </Button>
@@ -351,9 +354,8 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* Game Info */}
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-xs text-gray-500 text-center leading-relaxed">
+                <div className="pt-4 border-t border-indigo-100">
+                  <p className="text-xs text-slate-500 text-center leading-relaxed">
                     Everyone gets the same word except one imposter. Give hints
                     and find who's faking it!
                   </p>

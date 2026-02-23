@@ -1,10 +1,12 @@
 import WebSocket, { WebSocketServer } from "ws";
-import { server } from "../main";
+import { server, sessionStore } from "../main";
+import { parse as parseCookie } from "cookie";
+import { unsign } from "cookie-signature";
 import { GameManager } from "../services/gameManager";
 import {
   ClientInfo,
   ClientToServerSchema,
-  ServerToClient,
+  GameStatus,
 } from "../schemas/gameSchema";
 import {
   addSocketToLobby,
@@ -16,6 +18,7 @@ import {
   sendError,
   socketToClient,
 } from "./wsHelpers";
+import { SessionData } from "express-session";
 
 const wss = new WebSocketServer({
   server,
@@ -29,10 +32,186 @@ const wss = new WebSocketServer({
   },
   maxPayload: 1024 * 24,
 });
-
+const disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 wss.on("connection", (ws, req) => {
-  console.log("connected to ws successfully");
   const clientId = crypto.randomUUID();
+  let isAlive = true;
+
+  ws.on("pong", () => {
+    console.log("ponged");
+    isAlive = true;
+  });
+
+  const heartbeat = setInterval(() => {
+    if (!isAlive) {
+      console.log("client failed heartbeat, closing down");
+      ws.terminate();
+      return;
+    }
+    isAlive = false;
+    ws.ping();
+  }, 35000);
+
+  const cookie = parseCookie(req.headers.cookie ?? "");
+  let session: SessionData | null | undefined;
+  let unsigned: string;
+  if (cookie) {
+    const rawCookie = cookie["connect.sid"];
+    if (rawCookie) {
+      const raw = decodeURIComponent(rawCookie);
+      unsigned = unsign(raw.slice(2), process.env.SESSION_SECRET!) || ""; // empty string is falsy so this works
+
+      if (unsigned && typeof unsigned === "string") {
+        sessionStore.get(unsigned, async (err, s) => {
+          try {
+            if (err) {
+              throw err;
+            }
+            if (!s) {
+              console.log("no session found");
+              return;
+            }
+            session = s;
+            console.log(" session:", JSON.stringify(session));
+            const { player, lobby } = session as any;
+            console.log(
+              `playerid is ${player.id}, lobbyid is ${lobby.id}\n type of player id: ${typeof player.id}. type of lobbyid: ${typeof lobby.id}`,
+            );
+
+            const isActive = await GameManager.isLobbyActive(lobby.id);
+            if (!isActive) {
+              sessionStore.destroy(unsigned, () => {});
+              return;
+            }
+
+            const existing = disconnectTimers.get(player.id);
+            if (existing) {
+              clearTimeout(existing);
+              disconnectTimers.delete(player.id);
+            }
+
+            addToClientInfo(
+              ws,
+              {
+                playerId: player.id,
+                lobbyId: lobby.id,
+                name: player.name,
+                code: lobby.code,
+                sessionId: unsigned,
+                clientId,
+              },
+              clientId,
+            );
+
+            const freshPlayer = await GameManager.getPlayerInLobby(
+              lobby.id,
+              player.id,
+            );
+            const freshLobby = await GameManager.getLobby(lobby.id);
+            const players = await GameManager.getAllPlayers(lobby.id);
+            if (!freshPlayer || !freshLobby) {
+              sessionStore.destroy(unsigned, () => {});
+              return;
+            }
+            console.log(`fresh player is: name: ${freshPlayer.name} 
+              id: ${freshPlayer.id}
+              lobbyId: ${freshPlayer.lobbyId}
+              isHost: ${freshPlayer.isHost}
+              assignedWord: ${freshPlayer.assignedWord}
+              isImposter: ${freshPlayer.isImposter}
+                   name: ${freshPlayer.name}
+              `);
+
+            let gameStatus = await GameManager.getGameStatus(freshLobby.id);
+            console.log(
+              `the game status for player thats reconnecting is: ${gameStatus}`,
+            );
+
+            if (
+              gameStatus === GameStatus.voting ||
+              gameStatus === GameStatus.voted
+            ) {
+              const votes = await GameManager.countVotes(freshLobby.id);
+              console.log(`votes are : ${votes}`);
+              const playerThatIsReconnectingVotes = votes.find(
+                (x) => x.id === freshPlayer.id,
+              );
+
+              broadCastToLobby(lobby.id, {
+                type: "playerReconnected",
+                msg: {
+                  player: {
+                    id: freshPlayer.id,
+                    lobbyId: freshPlayer.lobbyId,
+                    name: freshPlayer.name,
+                    isHost: freshPlayer.isHost ?? false,
+                    assignedWord: freshPlayer.assignedWord,
+                    isImposter: freshPlayer.isImposter,
+                    votes:
+                      Number(playerThatIsReconnectingVotes?.voteCount) ?? 0,
+                  },
+                  gameStatus: gameStatus ?? null,
+                },
+              });
+            } else {
+              broadCastToLobby(lobby.id, {
+                type: "playerReconnected",
+                msg: {
+                  player: {
+                    id: freshPlayer.id,
+                    lobbyId: freshPlayer.lobbyId,
+                    name: freshPlayer.name,
+                    isHost: freshPlayer.isHost ?? false,
+                    assignedWord: freshPlayer.assignedWord,
+                    isImposter: freshPlayer.isImposter,
+                    votes: 0,
+                  },
+                  gameStatus: gameStatus ?? null,
+                },
+              });
+            }
+            // now we add
+
+            addSocketToLobby(lobby.id, ws);
+
+            //
+
+            ws.send(
+              JSON.stringify({
+                type: "reconnected",
+                msg: {
+                  player: {
+                    id: freshPlayer.id,
+                    name: freshPlayer.name,
+                    isHost: freshPlayer.isHost ?? false,
+                    assignedWord: freshPlayer.assignedWord,
+                    isImposter: freshPlayer.isImposter,
+                  },
+                  lobby: {
+                    ...freshLobby,
+                    wordPairId: freshLobby.wordPairId,
+                  },
+                  players: players.map((x) => ({
+                    ...x,
+                    assignedWord: x.assignedWord,
+                    isHost: x.isHost ?? false,
+                    votes: 0,
+                  })),
+                  gameStatus: gameStatus ?? null,
+                },
+              }),
+            );
+          } catch (err) {
+            console.log(
+              "Reconnection skipped: lobby or player no longer valid",
+            );
+            sessionStore.destroy(unsigned, () => {});
+          }
+        });
+      }
+    }
+  }
+
   socketToClient.set(ws, { clientId });
 
   ws.on("error", (err) => {
@@ -105,11 +284,17 @@ wss.on("connection", (ws, req) => {
           const voteState = parsed.data.msg;
           if (voteState === "start") {
             // respond to everyone that vote has started
-            if (clientInfo.lobbyId)
+
+            if (clientInfo.lobbyId) {
+              await GameManager.setGameStatus(
+                clientInfo.lobbyId,
+                GameStatus.voting,
+              );
               broadCastToLobby(clientInfo.lobbyId, {
                 type: "voteState",
                 msg: "start",
               });
+            }
           }
           break;
         }
@@ -120,18 +305,37 @@ wss.on("connection", (ws, req) => {
             break;
           }
 
-          if (typeof clientInfo.code !== "string") break;
+          if (typeof clientInfo.code !== "string") {
+            console.log("client code is not a string");
+            return;
+          }
           try {
+            let gameStatus = await GameManager.getGameStatus(
+              clientInfo.lobbyId,
+            );
+
+            // if player leaves the lobby mid vote, just cancel the round
+            if (gameStatus === "VOTING") {
+              // just vote them out so players can continue the game without them
+              // // but tell the client that player left and wasnt "voted out"
+              await GameManager.playerVotedOut(
+                clientInfo.lobbyId,
+                clientInfo.playerId,
+              );
+            }
             await GameManager.leaveLobby({
               code: clientInfo.code,
               playerId: clientInfo.playerId,
             });
             removeSocketFromLobby(clientInfo.lobbyId, ws);
-            socketToClient.delete(ws);
           } catch (err) {
             sendError(ws, "leaving lobby failed");
+            sessionStore.destroy(unsigned);
             break;
           }
+
+          sessionStore.destroy(unsigned); // erase sess
+
           broadCastToLobby(clientInfo.lobbyId, {
             type: "playerLeft",
             msg: {
@@ -170,6 +374,7 @@ wss.on("connection", (ws, req) => {
           }
 
           const lobby = await GameManager.getLobby(lobbyId);
+          await GameManager.setGameStatus(lobbyId, GameStatus.voting);
           const allVoted = await GameManager.haveAllPlayersVoted(
             lobbyId,
             lobby.votingRound,
@@ -181,9 +386,10 @@ wss.on("connection", (ws, req) => {
 
           if (allVoted) {
             const results = await GameManager.countVotes(lobbyId);
+            await GameManager.setGameStatus(lobbyId, GameStatus.voted);
             broadCastToLobby(lobbyId, {
               type: "votesCounted",
-              msg: { lobbyId, votes: results },
+              msg: { lobbyId, votes: results, gameStatus: GameStatus.voted },
             });
 
             await GameManager.playersLeftInGame(lobbyId);
@@ -193,24 +399,29 @@ wss.on("connection", (ws, req) => {
             const second = results[1];
             const hasMajority =
               top && (!second || +top.voteCount > +second.voteCount);
-            console.log();
-
             console.log(
-              `top is ${top.name}, second is ${second.name}, hasMajority is ${hasMajority}`,
+              `top is ${top?.name}, second is ${second?.name}, hasMajority is ${hasMajority}`,
             );
 
             if (hasMajority) {
-              await GameManager.playerVotedOut(lobbyId, top.id);
+              let playerVotedOut = await GameManager.playerVotedOut(
+                lobbyId,
+                top.id,
+              );
 
+              console.log(`voted out is :${playerVotedOut.name}`);
               const numOfPlayersLeft =
                 await GameManager.playersLeftInGame(lobbyId);
               if (top.isImposter) {
+                await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
                 broadCastToLobby(lobbyId, {
                   type: "gameOver",
                   msg: {
                     lastPlayerToBeVotedOutId: top.id,
                     lobbyId,
                     winner: "allies",
+                    name: playerVotedOut.name,
+                    gameStatus: GameStatus.gameOver,
                   },
                 });
                 await GameManager.resetLobbyVotingRound(lobbyId);
@@ -218,13 +429,21 @@ wss.on("connection", (ws, req) => {
               } else {
                 if (numOfPlayersLeft < 3) {
                   const winner = top.isImposter ? "allies" : "imposter";
+                  await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
                   broadCastToLobby(lobbyId, {
                     type: "gameOver",
-                    msg: { lastPlayerToBeVotedOutId: top.id, lobbyId, winner },
+                    msg: {
+                      lastPlayerToBeVotedOutId: top.id,
+                      lobbyId,
+                      winner,
+                      name: playerVotedOut.name,
+                      gameStatus: GameStatus.gameOver,
+                    },
                   });
                   await GameManager.resetLobbyVotingRound(lobbyId);
                   break;
                 } else {
+                  await GameManager.setGameStatus(lobbyId, GameStatus.idle);
                   await GameManager.incrementVotingRound(lobbyId);
                   broadCastToLobby(lobbyId, {
                     type: "playerVotedOut",
@@ -235,6 +454,7 @@ wss.on("connection", (ws, req) => {
               }
             } else {
               await GameManager.incrementVotingRound(lobbyId);
+              await GameManager.setGameStatus(lobbyId, GameStatus.idle);
               broadCastToLobby(lobbyId, {
                 type: "nobodyVotedOut",
                 msg: { lobbyId },
@@ -262,8 +482,10 @@ wss.on("connection", (ws, req) => {
           }
 
           try {
-            await GameManager.startGame(clientInfo.lobbyId, clientInfo.options);
+            await GameManager.startGame(clientInfo.lobbyId, clientInfo.options); // changes game status
+            console.log("we are here after startGame func");
             const players = await GameManager.getAllPlayers(clientInfo.lobbyId);
+            console.log("we are here after getAllplasyer func");
             if (!players || players.length === 0) {
               sendError(ws, "players array is empty");
               break;
@@ -291,6 +513,7 @@ wss.on("connection", (ws, req) => {
               }
             }
           } catch (err) {
+            console.error("startGame failed:", err);
             sendError(ws, "start_game_failed");
           }
           break;
@@ -338,9 +561,42 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("close", async () => {
+    clearInterval(heartbeat);
     const clientInfo = socketToClient.get(ws);
     socketToClient.delete(ws);
 
+    console.log("close fired, clientInfo:", clientInfo);
+
+    if (clientInfo && clientInfo.playerId) {
+      const timer = setTimeout(async () => {
+        try {
+          if (clientInfo.lobbyId) {
+            const gameStatus = await GameManager.getGameStatus(
+              clientInfo.lobbyId,
+            );
+            if (gameStatus === GameStatus.voting) {
+              await GameManager.playerVotedOut(
+                clientInfo.lobbyId,
+                clientInfo.playerId!,
+              );
+            }
+            broadCastToLobby(clientInfo.lobbyId, {
+              type: "playerLeft",
+              msg: { playerId: clientInfo.playerId, name: clientInfo.name },
+            });
+            await GameManager.leaveLobby({
+              code: clientInfo.code!,
+              playerId: clientInfo.playerId!,
+            });
+          }
+        } catch (err) {
+          console.error("disconnect timer failed:", err);
+        } finally {
+          disconnectTimers.delete(clientInfo.playerId!);
+        }
+      }, 10000);
+      disconnectTimers.set(clientInfo.playerId, timer);
+    }
     if (clientInfo?.lobbyId) {
       const set = lobbyToSockets.get(clientInfo.lobbyId);
       if (set) {
@@ -348,28 +604,6 @@ wss.on("connection", (ws, req) => {
         if (set.size === 0) {
           lobbyToSockets.delete(clientInfo.lobbyId);
         }
-      }
-    }
-
-    if (clientInfo?.code && clientInfo?.playerId && clientInfo?.lobbyId) {
-      const player = await GameManager.getPlayerInLobby(
-        clientInfo.lobbyId,
-        clientInfo.playerId,
-      );
-      if (!player) return;
-
-      try {
-        await GameManager.leaveLobby({
-          code: clientInfo.code,
-          playerId: clientInfo.playerId,
-        });
-      } catch (err) {
-        console.error("Failed to remove player from lobby on disconnect:", err);
-      } finally {
-        broadCastToLobby(clientInfo.lobbyId, {
-          type: "playerLeft",
-          msg: { playerId: clientInfo.playerId },
-        });
       }
     }
 

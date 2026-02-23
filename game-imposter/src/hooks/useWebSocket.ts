@@ -1,6 +1,7 @@
 import {
   AlertState,
   ClientToServer,
+  GameStatus,
   PlayerForLobbyType,
   ServerToClientSchema,
 } from "@/lib/types";
@@ -16,7 +17,9 @@ type UseWebSocketParams = {
   setVoted: Dispatch<SetStateAction<boolean>>;
   setVoteState: Dispatch<SetStateAction<VoteState>>;
   setWinner: Dispatch<SetStateAction<"allies" | "imposter" | null>>;
-  setGameOver: Dispatch<SetStateAction<boolean>>;
+
+  setGameStatus: Dispatch<SetStateAction<GameStatus>>;
+  setInGame: Dispatch<SetStateAction<boolean>>;
 };
 
 export function useWebSocket({
@@ -26,7 +29,8 @@ export function useWebSocket({
   setVoted,
   setVoteState,
   setWinner,
-  setGameOver,
+  setInGame,
+  setGameStatus,
 }: UseWebSocketParams) {
   const ws = useRef<WebSocket | null>(null);
   const sendWhenReady = (message: ClientToServer) => {
@@ -49,8 +53,17 @@ export function useWebSocket({
   };
 
   useEffect(() => {
-    // console.log(`lobby is : ${lobby}`);
     ws.current = startWsConnection();
+    ws.current.addEventListener("close", (e) => {
+      console.log(
+        "CLOSE CODE:",
+        e.code,
+        "reason:",
+        e.reason,
+        "wasClean:",
+        e.wasClean,
+      );
+    });
     const handleMessage = (e: MessageEvent) => {
       console.log(`message received: ${e.data}`);
       let message;
@@ -63,13 +76,13 @@ export function useWebSocket({
 
       const parsed = ServerToClientSchema.safeParse(message);
       if (!parsed.success) {
+        console.log(`the data is ${parsed.data}`);
         console.log("schema validation failed:", parsed.error.issues);
         return;
       }
 
       switch (parsed.data.type) {
         case "playerJoined": {
-          // another player joined<<
           console.log(`player that joined is ${parsed.data.msg.name}`);
 
           const newPlayer = parsed.data.msg as PlayerForLobbyType;
@@ -83,20 +96,27 @@ export function useWebSocket({
           lobbyDispatch({
             type: "PLAYER_INFO",
             payload: {
-              assignedWord: playerInfo.assignedWord,
+              assignedWord: playerInfo.assignedWord ?? "",
               isImposter: playerInfo.isImposter,
             },
           });
+          setInGame(true);
+          setGameStatus(GameStatus.started);
+
           break;
         }
         case "playerLeft": {
-          const playerThatLeft = parsed.data.msg;
+          const { playerId, name } = parsed.data.msg;
 
-          if (playerThatLeft.playerId)
+          if (playerId)
             lobbyDispatch({
               type: "PLAYER_LEFT",
-              payload: { playerId: playerThatLeft.playerId },
+              payload: { playerId: playerId },
             }); // 3
+          setNotificationAlert({
+            type: "info",
+            message: `${name} has left the lobby`,
+          });
           break;
         }
         case "playerVoted": {
@@ -104,6 +124,7 @@ export function useWebSocket({
 
           if (targetId)
             lobbyDispatch({ type: "PLAYER_VOTED", payload: { targetId } }); // 4
+          setGameStatus(GameStatus.voting);
           break;
         }
         case "votesCounted": {
@@ -118,6 +139,7 @@ export function useWebSocket({
             payload: { votes: votesForDispatch },
           }); // 5
 
+          setGameStatus(GameStatus.voted);
           setVotesCounted(true);
 
           break;
@@ -130,6 +152,7 @@ export function useWebSocket({
           }
           setVoted(false);
           setVoteState("idle");
+          setGameStatus(GameStatus.idle);
           break;
         }
         case "playerBackInLobby": {
@@ -145,7 +168,7 @@ export function useWebSocket({
         case "voteState": {
           const voteState = parsed.data.msg;
           setVoteState(voteState);
-
+          setGameStatus(GameStatus.voting);
           break;
         }
         case "nobodyVotedOut": {
@@ -153,19 +176,23 @@ export function useWebSocket({
             type: "info",
             message: "Nobody received enough votes to be voted out!",
           });
+          setVoted(false);
+          setVoteState("idle");
+          setGameStatus(GameStatus.idle);
           break;
         }
         case "gameOver": {
           const { lastPlayerToBeVotedOutId, winner, name } = parsed.data.msg;
           console.log("we are inside game over");
 
-          setGameOver(true);
           setWinner(winner === "allies" ? "allies" : "imposter");
 
           lobbyDispatch({
             type: "GAME_OVER",
             payload: { lastPlayerToBeVotedOutId },
           }); // 8
+          setGameStatus(GameStatus.gameOver);
+
           if (winner === "allies") {
             setNotificationAlert({
               type: "info",
@@ -178,7 +205,49 @@ export function useWebSocket({
             });
           }
 
-          // reset state of lobby after 2 seconds. (show players exit to lobby button)
+          break;
+        }
+        case "reconnected": {
+          const { player, lobby, players, gameStatus } = parsed.data.msg;
+
+          lobbyDispatch({
+            type: "SET_LOBBY",
+            payload: {
+              player: { ...player, votes: 0, lobbyId: lobby.id },
+              players: players.map((x) => ({
+                ...x,
+                playerLeft: false,
+                inLobby: true,
+                votedOut: false,
+              })),
+              lobby,
+            },
+          });
+          setGameStatus(gameStatus ?? GameStatus.idle);
+          if (
+            gameStatus !== GameStatus.idle &&
+            gameStatus !== GameStatus.gameOver
+          ) {
+            setInGame(true);
+          }
+          break;
+        }
+        case "playerReconnected": {
+          const { player, gameStatus } = parsed.data.msg;
+
+          lobbyDispatch({
+            type: "PLAYER_JOINED",
+            payload: {
+              ...player,
+              votedOut: false,
+              playerLeft: false,
+              inLobby: true,
+            },
+          });
+          console.log(
+            `the gameStatus received from the backend is : ${gameStatus}`,
+          );
+          setGameStatus(gameStatus ?? GameStatus.idle);
           break;
         }
         case "error": {
@@ -200,10 +269,8 @@ export function useWebSocket({
       ws.current.removeEventListener("close", handleClose);
       ws.current.removeEventListener("error", handleError);
 
-      try {
+      if (ws.current.readyState === WebSocket.OPEN) {
         ws.current.close();
-      } catch (err) {
-        console.log(err);
       }
       ws.current = null;
     };

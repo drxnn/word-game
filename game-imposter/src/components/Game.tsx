@@ -7,8 +7,10 @@ import {
   Player,
   ClientToServer,
   VoteState,
+  GameStatus,
 } from "@/lib/types";
 import { sendWsMessage } from "@/services/ws";
+import { Dispatch, SetStateAction } from "react";
 
 type GameProps = {
   players: PlayerForLobbyType[];
@@ -20,9 +22,13 @@ type GameProps = {
   voted: boolean;
   wsRef: React.RefObject<WebSocket | null>;
   voteState: VoteState;
-  gameOver: boolean;
   winner: "allies" | "imposter" | null;
   handleExitToLobby: () => void;
+  gameStatusState: {
+    gameStatus: GameStatus;
+    setGameStatus: Dispatch<SetStateAction<GameStatus>>;
+  };
+  inGame: boolean;
 };
 
 export default function Game({
@@ -34,10 +40,10 @@ export default function Game({
   voting,
   voted,
   wsRef,
-  voteState,
-  gameOver,
+  inGame,
   handleExitToLobby,
   winner,
+  gameStatusState,
 }: GameProps) {
   const onReadyToVote = () => {
     const messageToSend = {
@@ -47,23 +53,18 @@ export default function Game({
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       sendWsMessage(messageToSend, wsRef.current);
     }
+    gameStatusState.setGameStatus(GameStatus.voting);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-fit bg-gradient-to-br from-violet-50 via-indigo-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
         {/* Game Title */}
-        <div className="text-center">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-700 via-indigo-700 to-slate-800 bg-clip-text text-transparent mb-2">
-            Word Imposter
-          </h1>
-          <p className="text-slate-600">Give hints about your word</p>
-        </div>
 
-        {gameOver ? (
-          <Card className="p-6 text-center bg-yellow-50 border-yellow-200">
-            <h2 className="text-2xl font-bold text-yellow-800">Game Over!</h2>
-            <p className="text-yellow-600 mt-2">
+        {gameStatusState.gameStatus === GameStatus.gameOver ? (
+          <Card className="p-6 text-center bg-indigo-50 border-indigo-200">
+            <h2 className="text-2xl font-bold text-indigo-800">Game Over!</h2>
+            <p className="text-indigo-600 mt-2">
               {winner === "allies"
                 ? "🎉 The allies won! The imposter was found!"
                 : "🕵️ The imposter won! They stayed hidden!"}
@@ -71,7 +72,7 @@ export default function Game({
           </Card>
         ) : (
           <FlipCard
-            word={currentPlayer.assignedWord}
+            word={currentPlayer.assignedWord ?? ""}
             isImposter={currentPlayer.isImposter || false}
           />
         )}
@@ -79,14 +80,14 @@ export default function Game({
         {/* Players List */}
         <Card className="p-6 shadow-xl border-none bg-white/80 backdrop-blur-sm">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800 flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="text-lg font-semibold text-slate-800 flex items-center justify-between border-b border-indigo-100 pb-3">
               <span>Players in Game</span>
-              <span className="text-sm font-normal text-slate-600">
+              <span className="text-sm font-normal text-slate-500">
                 {players.length} players
               </span>
-            </h3>
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {players.map((player) => {
                 return (
                   <div
@@ -99,7 +100,7 @@ export default function Game({
                           : "bg-slate-50 border-2 border-transparent"
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                       {player.name.charAt(0).toUpperCase()}
                     </div>
 
@@ -119,52 +120,54 @@ export default function Game({
                       ) : votesCounted ? (
                         <p className="text-xs text-slate-500 mt-0.5">
                           Votes:{" "}
-                          <span className="font-semibold text-red-500">
+                          <span className="font-semibold text-rose-500">
                             {player.votes ?? 0}
                           </span>
                         </p>
                       ) : null}
                     </div>
-                    {voteState === "start" && !player.votedOut && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={voted || voting}
-                        className="text-xs font-semibold hover:cursor-pointer text-black border-red-300 hover:bg-red-50 hover:border-red-400 transition-all"
-                        data-player-id={player.id}
-                        onClick={handleVotePlayer}
-                      >
-                        {voting ? "Voting..." : voted ? "Voted" : "Vote"}
-                      </Button>
-                    )}
+                    {inGame &&
+                      gameStatusState.gameStatus !== GameStatus.idle &&
+                      !player.votedOut &&
+                      player.id !== currentPlayer.id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={voted || voting}
+                          className="text-xs font-semibold hover:cursor-pointer text-rose-700 border-rose-300 hover:bg-rose-50 hover:border-rose-400 transition-all"
+                          data-player-id={player.id}
+                          onClick={handleVotePlayer}
+                        >
+                          {voting ? "Voting..." : voted ? "Voted" : "Vote"}
+                        </Button>
+                      )}
                   </div>
                 );
               })}
             </div>
           </div>
+          {isHost && gameStatusState.gameStatus === GameStatus.idle && (
+            <Button
+              onClick={onReadyToVote}
+              className="w-full mt-4 py-6 text-base hover:cursor-pointer font-semibold border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-200 transform transition-all hover:scale-105 active:scale-95"
+            >
+              Ready to Vote
+            </Button>
+          )}
         </Card>
 
-        {isHost && voteState === "idle" && (
-          <Button
-            onClick={onReadyToVote}
-            className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"
-          >
-            Ready to Vote
-          </Button>
-        )}
-
-        {gameOver && (
+        {gameStatusState.gameStatus === GameStatus.gameOver && (
           <Button
             onClick={handleExitToLobby}
-            className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"
+            className="w-full py-6 text-lg font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg hover:cursor-pointer"
           >
-            Exit To Lobby
+            Go Back To Lobby
           </Button>
         )}
 
-        {!isHost && voteState === "idle" && (
+        {!isHost && gameStatusState.gameStatus === GameStatus.idle && (
           <div className="text-center">
-            <p className="text-slate-600">
+            <p className="text-slate-500">
               Waiting for host to start voting...
             </p>
           </div>

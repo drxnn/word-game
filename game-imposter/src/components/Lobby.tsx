@@ -10,26 +10,24 @@ type LobbyProps = {
 };
 
 export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
-  // Dummy data for preview
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-200 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-fit bg-gradient-to-br from-violet-50 via-indigo-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <p className="text-slate-600">Waiting for players...</p>
+          <p className="text-slate-500">Waiting for players...</p>
         </div>
 
         <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
           <div className="space-y-6">
             {/* Lobby Code Display */}
-            <div className="text-center pb-4 border-b border-gray-200">
-              <p className="text-sm text-slate-600 mb-2">Lobby Code</p>
-              <div className="inline-flex items-center gap-2 bg-slate-100 px-6 py-3 rounded-lg">
-                <span className="text-3xl font-bold text-slate-800 tracking-wider">
+            <div className="text-center pb-4 border-b border-indigo-100">
+              <p className="text-sm text-slate-500 mb-2">Lobby Code</p>
+              <div className="inline-flex items-center gap-2 bg-indigo-50 px-6 py-3 rounded-lg">
+                <span className="text-3xl font-bold text-indigo-800 tracking-wider">
                   {lobby.lobby.code}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-slate-400 mt-2">
                 Share this code with your friends
               </p>
             </div>
@@ -37,7 +35,7 @@ export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-800 flex items-center justify-between">
                 <span>Players</span>
-                <span className="text-sm font-normal text-slate-600">
+                <span className="text-sm font-normal text-slate-500">
                   {lobby.players.length} joined
                 </span>
               </h3>
@@ -52,7 +50,7 @@ export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
                         : "bg-slate-50 border-2 border-transparent"
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-600 to-indigo-600 flex items-center justify-center text-white font-bold">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold">
                       {pl.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1">
@@ -85,13 +83,13 @@ export default function Lobby({ lobby, player, handleStartGame }: LobbyProps) {
                     lobby.players.length < 3 ||
                     lobby.players.some((pl) => !pl.inLobby)
                   }
-                  className="w-full py-6 text-base font-semibold bg-gradient-to-r from-slate-700 to-indigo-700 hover:from-slate-800 hover:to-indigo-800 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
+                  className="w-full py-6 text-base font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 transform transition-all hover:scale-105 active:scale-95 shadow-lg"
                 >
                   Start Game
                 </Button>
               )}
               {lobby.players.length < 3 && (
-                <p className="text-xs text-slate-500 text-center mt-2">
+                <p className="text-xs text-slate-400 text-center mt-2">
                   Need at least 3 players to start
                 </p>
               )}

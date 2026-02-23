@@ -10,7 +10,7 @@ export default function FlipCard({ word, isImposter }: FlipCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
 
   return (
-    <div className="w-80 h-56 mx-auto" style={{ perspective: "1000px" }}>
+    <div className="w-auto h-56 mx-auto" style={{ perspective: "1000px" }}>
       <div
         className="relative w-full h-full transition-transform duration-700 cursor-pointer"
         style={{

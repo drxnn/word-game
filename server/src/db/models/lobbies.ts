@@ -1,8 +1,10 @@
+import { GameStatus } from "../../schemas/gameSchema";
 import { query, connect } from "../index";
 import { enterPlayer } from "./players";
 
 export async function createLobby(code: string) {
   if (!code) throw new Error("Code is required");
+  await query(`BEGIN`);
 
   try {
     const result = await query(
@@ -12,13 +14,25 @@ export async function createLobby(code: string) {
         `,
       [code],
     );
-    return result.rows[0];
+    const lobby = result.rows[0];
+
+    await query(`INSERT INTO games (lobby_id) VALUES ($1)`, [lobby.id]);
+    await query(`COMMIT`);
+    return lobby;
   } catch (err: any) {
+    await query(`ROLLBACK`);
     if (err.code === "23505") {
       throw new Error("Lobby code already exists");
     }
+
     throw err;
   }
+}
+
+export async function isLobbyActive(lobbyId: string) {
+  const result = await query(`SELECT id FROM lobbies WHERE id = $1`, [lobbyId]);
+
+  return result.rows.length > 0;
 }
 
 export async function setImposterKnows(lobbyId: string, flag: boolean) {
@@ -169,4 +183,25 @@ export async function haveAllPlayersVoted(
 export async function clearVotes(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
   await query(`DELETE FROM votes WHERE lobby_id = $1`, [lobbyId]);
+}
+
+//
+export async function changeGameStatus(lobbyId: string, status: GameStatus) {
+  await query(
+    `
+    UPDATE games SET game_status = $2 WHERE lobby_id = $1
+    `,
+    [lobbyId, status],
+  );
+}
+
+export async function getGameStatus(lobbyId: string) {
+  const result = await query(
+    `
+    SELECT game_status FROM games WHERE lobby_id = $1
+    `,
+    [lobbyId],
+  );
+  console.log(`result . rows [0] is $${result.rows[0]} `);
+  return result.rows[0]?.gameStatus;
 }

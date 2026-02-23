@@ -7,6 +7,8 @@ import {
   CreateLobbyInput,
   JoinLobbyInput,
   LeaveLobbySchema,
+  GameStatus,
+  PlayerVoteResult,
 } from "../schemas/gameSchema";
 import * as lobbiesModel from "../db/models/lobbies";
 import * as playersModel from "../db/models/players";
@@ -125,8 +127,13 @@ class _GameManager {
     const round = await lobbiesModel.incrementVotingRound(lobbyId);
     await lobbiesModel.setImposterKnows(lobbyId, imposterKnows);
     const imposter = await playersModel.assignImposter(lobbyId);
+    console.log("beforec change game status");
+    await lobbiesModel.changeGameStatus(lobbyId, GameStatus.started);
+    console.log("we are here");
 
     await playersModel.assignWordsToPlayers(lobbyId);
+
+    console.log("assigning word");
     return {
       round,
       imposter,
@@ -154,7 +161,7 @@ class _GameManager {
     }
   }
 
-  async countVotes(lobbyId: string) {
+  async countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {
     if (!lobbyId) {
       throw new Error("Something went wrong, lobby id not found");
     }
@@ -208,6 +215,26 @@ class _GameManager {
     }
 
     await lobbiesModel.resetLobbyVotingRound(lobbyId);
+  }
+
+  async isLobbyActive(lobbyId: string) {
+    if (!lobbyId) throw new Error("Something went wrong, lobby ID not defined");
+    const isActive = await lobbiesModel.isLobbyActive(lobbyId);
+    return isActive;
+  }
+
+  async getGameStatus(lobbyId: string): Promise<GameStatus> {
+    if (!lobbyId)
+      throw new Error("Cannot get lobby_status, lobby ID not defined");
+    const status = await lobbiesModel.getGameStatus(lobbyId);
+    console.log(`the status is ${status}`);
+    return status;
+  }
+
+  async setGameStatus(lobbyId: string, status: GameStatus) {
+    if (!lobbyId)
+      throw new Error("Cannot set lobby_status, lobby ID not defined");
+    await lobbiesModel.changeGameStatus(lobbyId, status);
   }
 }
 

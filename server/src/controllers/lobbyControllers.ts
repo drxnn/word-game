@@ -13,6 +13,7 @@ import { getLobbyByCode } from "../db/models/lobbies";
 /**
  * Create a lobby
  */
+// make a session
 export async function createLobby(
   req: Request,
   res: Response,
@@ -35,6 +36,9 @@ export async function createLobby(
     console.log("parsed.data is: ", parsed.data);
 
     const { lobby, player } = await GameManager.startLobby(parsed.data);
+    req.session.player = player;
+    req.session.lobby = lobby;
+
     return res.status(201).json({ lobby, player });
   } catch (err) {
     next(err);
@@ -62,42 +66,14 @@ export async function joinLobby(
 
     const { player, players, lobby } = await GameManager.joinLobby(parsed.data);
     console.log("we are here, after the call to joinLobby");
+    req.session.player = player;
+    req.session.lobby = lobby;
 
     return res.status(200).json({ player, players, lobby });
   } catch (err) {
     next(err);
   }
 }
-
-/**
- * Leave a lobby
- */
-export async function leaveLobby(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const { code } = req.params;
-    const { playerId } = req.body;
-    let parsed = leaveLobbySchema.safeParse({ code, playerId });
-
-    if (!parsed.success) {
-      const prettyError = z.prettifyError(parsed.error);
-      return res.status(400).send(prettyError);
-    }
-
-    await GameManager.leaveLobby(parsed.data);
-
-    return res.status(200).send({ success: true });
-  } catch (err) {
-    next(err);
-  }
-}
-
-/**
- * Get lobby info
- */
 
 export async function getLobby(
   req: Request,

@@ -2,6 +2,14 @@ import { z } from "zod";
 
 // this file is a copy from the backend. will extract it to a shared library later
 
+export enum GameStatus {
+  idle = "IDLE",
+  started = "STARTED",
+  voted = "VOTED",
+  voting = "VOTING",
+  gameOver = "GAME_OVER",
+}
+
 export type LobbyAction =
   | { type: "PLAYER_JOINED"; payload: PlayerForLobbyType }
   | { type: "PLAYER_LEFT"; payload: { playerId: string } }
@@ -33,7 +41,7 @@ export const PlayerSchema = z.object({
   lobbyId: z.uuid(),
   isImposter: z.boolean(),
   isHost: z.boolean(),
-  assignedWord: z.string().max(50).trim(),
+  assignedWord: z.string().max(50).trim().nullable(),
   votes: z.number(),
 });
 
@@ -43,16 +51,16 @@ export const LobbySchema = z.object({
     .string()
     .length(6)
     .regex(/^[A-Z0-9]+$/),
-  hostName: z.string().trim().min(2).max(20),
+  hostName: z.string().trim().min(2).max(20).optional().nullable(),
   imposterKnows: z.boolean(),
   votingRound: z.number().min(0),
   createdAt: z.string().optional(),
-  wordPairId: z.uuid(),
-  gameStarted: z.boolean(),
+  wordPairId: z.uuid().optional().nullable(),
+  gameStarted: z.boolean().optional(),
 });
 
 export const gameOptionsSchema = z.object({
-  imposterKnows: z.boolean().optional(),
+  imposterHint: z.boolean().optional(),
   numOfImposters: z
     .preprocess(
       (val) => (val === null ? undefined : val),
@@ -148,6 +156,30 @@ export const ServerToClientMapSchema = z.object({
     name: z.string().trim().min(2).max(20),
     lobbyId: z.uuid(),
   }),
+  playerReconnected: z.object({
+    player: PlayerSchema.pick({
+      name: true,
+      id: true,
+      assignedWord: true,
+      isImposter: true,
+      isHost: true,
+      lobbyId: true,
+      votes: true,
+    }),
+    gameStatus: z.enum(GameStatus).nullable(),
+  }),
+  reconnected: z.object({
+    player: PlayerSchema.pick({
+      name: true,
+      id: true,
+      assignedWord: true,
+      isImposter: true,
+      isHost: true,
+    }),
+    lobby: LobbySchema,
+    players: PlayerSchema.array(),
+    gameStatus: z.enum(GameStatus).nullable(),
+  }),
   playerInfo: PlayerSchema.pick({
     name: true,
     isHost: true,
@@ -238,6 +270,14 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("voteState"),
     msg: ClientToServerMapSchema.shape.voteState,
+  }),
+  z.object({
+    type: z.literal("reconnected"),
+    msg: ServerToClientMapSchema.shape.reconnected,
+  }),
+  z.object({
+    type: z.literal("playerReconnected"),
+    msg: ServerToClientMapSchema.shape.playerReconnected,
   }),
   z.object({
     type: z.literal("playerBackInLobby"),
