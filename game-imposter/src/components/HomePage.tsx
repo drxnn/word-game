@@ -240,6 +240,7 @@ export default function HomePage() {
                   voted={voted}
                   voting={voting}
                   wsRef={ws}
+                  handleStartGame={handleStartGame}
                   voteState={voteState}
                   handleExitToLobby={handleExitToLobby}
                   winner={winner}
@@ -250,6 +251,8 @@ export default function HomePage() {
                   lobby={lobby}
                   player={lobby.player}
                   handleStartGame={handleStartGame}
+                  options={options}
+                  setOptions={setOptions}
                 />
               )}
               <Button

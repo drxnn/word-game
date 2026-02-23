@@ -20,6 +20,7 @@ type GameProps = {
   votesCounted: boolean;
   voting: boolean;
   voted: boolean;
+  handleStartGame: () => void;
   wsRef: React.RefObject<WebSocket | null>;
   voteState: VoteState;
   winner: "allies" | "imposter" | null;
@@ -43,6 +44,7 @@ export default function Game({
   inGame,
   handleExitToLobby,
   winner,
+  handleStartGame,
   gameStatusState,
 }: GameProps) {
   const onReadyToVote = () => {
@@ -71,10 +73,20 @@ export default function Game({
             </p>
           </Card>
         ) : (
-          <FlipCard
-            word={currentPlayer.assignedWord ?? ""}
-            isImposter={currentPlayer.isImposter || false}
-          />
+          <>
+            <FlipCard
+              word={currentPlayer.assignedWord ?? ""}
+              isImposter={currentPlayer.isImposter || false}
+            />
+            {isHost && (
+              <Button
+                onClick={handleStartGame}
+                className="w-full py-6 text-base hover:cursor-pointer font-semibold border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-200 transform transition-all hover:scale-105 active:scale-95"
+              >
+                Skip this word
+              </Button>
+            )}
+          </>
         )}
 
         {/* Players List */}
@@ -127,7 +139,7 @@ export default function Game({
                       ) : null}
                     </div>
                     {inGame &&
-                      gameStatusState.gameStatus !== GameStatus.idle &&
+                      gameStatusState.gameStatus === GameStatus.voting &&
                       !player.votedOut &&
                       player.id !== currentPlayer.id && (
                         <Button
@@ -146,7 +158,7 @@ export default function Game({
               })}
             </div>
           </div>
-          {isHost && gameStatusState.gameStatus === GameStatus.idle && (
+          {isHost && gameStatusState.gameStatus === GameStatus.started && (
             <Button
               onClick={onReadyToVote}
               className="w-full mt-4 py-6 text-base hover:cursor-pointer font-semibold border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-200 transform transition-all hover:scale-105 active:scale-95"

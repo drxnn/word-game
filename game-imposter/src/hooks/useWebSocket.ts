@@ -38,16 +38,20 @@ export function useWebSocket({
       console.log("ws is null");
       return;
     }
-    console.log("ws readyState:", ws.current.readyState);
     if (ws.current.readyState === WebSocket.OPEN) {
       sendWsMessage(message, ws.current);
-    } else {
+    } else if (ws.current.readyState === WebSocket.CONNECTING) {
       ws.current.addEventListener(
         "open",
         () => {
           sendWsMessage(message, ws.current!);
         },
         { once: true },
+      );
+    } else {
+      console.warn(
+        "sendWhenReady: socket is closing/closed, dropping message",
+        message,
       );
     }
   };

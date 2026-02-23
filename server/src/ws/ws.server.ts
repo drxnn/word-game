@@ -593,6 +593,7 @@ wss.on("connection", (ws, req) => {
           console.error("disconnect timer failed:", err);
         } finally {
           disconnectTimers.delete(clientInfo.playerId!);
+          sessionStore.destroy(clientInfo.sessionId!, () => {});
         }
       }, 10000);
       disconnectTimers.set(clientInfo.playerId, timer);
