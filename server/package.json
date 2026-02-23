@@ -9,8 +9,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "start": "node dist/index.js",
     "build": "tsc -p .",
-    "db:init": "npx dotenv psql -h 127.0.0.1 -p 5433 -U postgres -d postgres -f src/db/migrations/001_init.sql",
-    "db:seed": "npx dotenv psql -h 127.0.0.1 -p 5433 -U postgres -d postgres -f src/db/migrations/002_seedData.sql",
+    "db:init": "psql $DATABASE_URL -f src/db/migrations/001_init.sql",
+    "db:seed": "psql $DATABASE_URL -f src/db/migrations/002_seedData.sql",
     "db:migrate": "npm run db:init && npm run db:seed"
   },
   "keywords": [],
