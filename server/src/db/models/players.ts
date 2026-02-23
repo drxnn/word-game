@@ -1,4 +1,4 @@
-import { Player, PlayerVoteResult } from "../../schemas/gameSchema";
+import { Player, PlayerVoteResult } from "shared-types";
 import { query } from "../index";
 
 export async function enterPlayer(name: string, lobbyId: string) {
@@ -77,13 +77,13 @@ export async function assignImposter(lobbyId: string, num: number = 1) {
     `
     UPDATE players 
     SET is_imposter = true
-    WHERE id = (
-     SELECT id FROM players WHERE lobby_id = $1 ORDER BY random() LIMIT 1
+    WHERE id IN (
+     SELECT id FROM players WHERE lobby_id = $1 ORDER BY random() LIMIT $2
     ) 
    RETURNING *
     
     `,
-    [lobbyId],
+    [lobbyId, num],
   );
 
   return result.rows;
@@ -242,7 +242,7 @@ export async function getImposterFromLobby(lobbyId: string) {
     [lobbyId],
   );
 
-  return result.rows[0]?.id ?? null;
+  return result.rows.map((row) => row.id);
 }
 
 // how many players in game that havent been voted out
@@ -271,8 +271,8 @@ export async function assignWordsToPlayers(lobbyId: string) {
   }
   console.log("after word pair id");
 
-  let imposter = await getImposterFromLobby(lobbyId);
-  if (!imposter) {
+  let imposters = await getImposterFromLobby(lobbyId);
+  if (!imposters.length) {
     throw Error("Something went wrong. There is no imposter in the lobby!");
   }
   //
@@ -284,8 +284,8 @@ export async function assignWordsToPlayers(lobbyId: string) {
     `,
     [wordPairId],
   );
+  if (!rows[0]) throw new Error("Something went wrong, word_pair not found.");
 
-  console.log("after word fetch");
   const { realWord, imposterWord } = rows[0];
   if (!rows[0] || !realWord || !imposterWord) {
     throw new Error("Something went wrong, word_pair not found.");

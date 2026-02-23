@@ -6,7 +6,7 @@ import {
   leaveLobbySchema,
   getLobbySchema,
   deleteLobbySchema,
-} from "../schemas/gameSchema";
+} from "shared-types";
 import { success, z } from "zod";
 import { getLobbyByCode } from "../db/models/lobbies";
 

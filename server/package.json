@@ -27,7 +27,8 @@
     "pg": "^8.16.3",
     "uuid": "^13.0.0",
     "ws": "^8.19.0",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "shared-types": "*"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",

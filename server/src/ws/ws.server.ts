@@ -3,11 +3,7 @@ import { server, sessionStore } from "../main";
 import { parse as parseCookie } from "cookie";
 import { unsign } from "cookie-signature";
 import { GameManager } from "../services/gameManager";
-import {
-  ClientInfo,
-  ClientToServerSchema,
-  GameStatus,
-} from "../schemas/gameSchema";
+import { ClientInfo, ClientToServerSchema, GameStatus } from "shared-types";
 import {
   addSocketToLobby,
   addToClientInfo,
@@ -506,6 +502,7 @@ wss.on("connection", (ws, req) => {
                         isImposter: player.isImposter,
                         name: player.name,
                         isHost: player.isHost ?? false,
+                        options: clientInfo.options,
                       },
                     }),
                   );
@@ -565,8 +562,6 @@ wss.on("connection", (ws, req) => {
     const clientInfo = socketToClient.get(ws);
     socketToClient.delete(ws);
 
-    console.log("close fired, clientInfo:", clientInfo);
-
     if (clientInfo && clientInfo.playerId) {
       const timer = setTimeout(async () => {
         try {
@@ -593,7 +588,7 @@ wss.on("connection", (ws, req) => {
           console.error("disconnect timer failed:", err);
         } finally {
           disconnectTimers.delete(clientInfo.playerId!);
-          sessionStore.destroy(clientInfo.sessionId!, () => {});
+          sessionStore.destroy(unsigned, () => {});
         }
       }, 10000);
       disconnectTimers.set(clientInfo.playerId, timer);
@@ -607,7 +602,5 @@ wss.on("connection", (ws, req) => {
         }
       }
     }
-
-    console.log("Client disconnected");
   });
 });

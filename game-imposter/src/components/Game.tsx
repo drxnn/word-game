@@ -8,7 +8,8 @@ import {
   ClientToServer,
   VoteState,
   GameStatus,
-} from "@/lib/types";
+  GameOptions,
+} from "shared-types";
 import { sendWsMessage } from "@/services/ws";
 import { Dispatch, SetStateAction } from "react";
 
@@ -30,6 +31,7 @@ type GameProps = {
     setGameStatus: Dispatch<SetStateAction<GameStatus>>;
   };
   inGame: boolean;
+  gameOptions: GameOptions;
 };
 
 export default function Game({
@@ -46,6 +48,7 @@ export default function Game({
   winner,
   handleStartGame,
   gameStatusState,
+  gameOptions,
 }: GameProps) {
   const onReadyToVote = () => {
     const messageToSend = {
@@ -55,6 +58,7 @@ export default function Game({
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       sendWsMessage(messageToSend, wsRef.current);
     }
+
     gameStatusState.setGameStatus(GameStatus.voting);
   };
 
@@ -77,6 +81,7 @@ export default function Game({
             <FlipCard
               word={currentPlayer.assignedWord ?? ""}
               isImposter={currentPlayer.isImposter || false}
+              options={gameOptions}
             />
             {isHost && (
               <Button

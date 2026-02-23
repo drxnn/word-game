@@ -5,7 +5,7 @@ import {
   getGameStateSchema,
   startGameSchema,
   voteSchema,
-} from "../schemas/gameSchema";
+} from "shared-types";
 import { z } from "zod";
 /**
  * Start a game in a lobby (choose imposters, assign words, create game state)

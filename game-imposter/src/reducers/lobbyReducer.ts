@@ -1,4 +1,4 @@
-import { LobbyAction, LobbyType } from "@/lib/types";
+import { LobbyAction, LobbyType } from "shared-types";
 
 export function lobbyReducer(state: LobbyType, action: LobbyAction) {
   const { type } = action;
@@ -15,6 +15,16 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
           ...state.players,
           { ...action.payload, votes: 0, votedOut: false, inLobby: true },
         ],
+      };
+    }
+    case "PLAYER_RECONNECTED": {
+      return {
+        ...state,
+        players: state.players.map((pl) =>
+          pl.id === action.payload.id
+            ? { ...pl, inLobby: true, playerLeft: false, votedOut: false }
+            : pl,
+        ),
       };
     }
     case "PLAYER_LEFT": {

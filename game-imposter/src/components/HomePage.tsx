@@ -9,8 +9,9 @@ import {
   GameOptions,
   GameStatus,
   LobbyType,
+  PlayerSchema,
   VoteState,
-} from "@/lib/types";
+} from "shared-types";
 
 import Game from "./Game";
 
@@ -47,6 +48,7 @@ export default function HomePage() {
     lobbyDispatch,
     setGameStatus,
     setInGame,
+    setOptions,
   });
 
   useEffect(() => {
@@ -89,8 +91,18 @@ export default function HomePage() {
   const handleCreateLobby = async () => {
     if (playerName.trim()) {
       console.log(playerName);
+
+      const parseResult = PlayerSchema.shape.name.safeParse(playerName);
+      if (parseResult.error) {
+        setNotificationAlert({
+          type: "error",
+          message: parseResult.error.issues[0].message,
+        });
+        return;
+      }
+
       try {
-        const result = await createLobby({ name: playerName, options });
+        const result = await createLobby({ name: parseResult.data, options });
 
         lobbyDispatch({
           type: "SET_LOBBY",
@@ -160,10 +172,18 @@ export default function HomePage() {
   };
   const handleJoinLobby = async () => {
     if (playerName.trim() && lobbyCode.trim()) {
+      const parseResult = PlayerSchema.shape.name.safeParse(playerName);
+      if (parseResult.error) {
+        setNotificationAlert({
+          type: "error",
+          message: parseResult.error.issues[0].message,
+        });
+        return;
+      }
       console.log("Joining lobby:", lobbyCode, "as:", playerName);
       try {
         const result = (await joinLobby({
-          name: playerName,
+          name: parseResult.data,
           code: lobbyCode,
         })) as LobbyType;
 
@@ -245,6 +265,7 @@ export default function HomePage() {
                   handleExitToLobby={handleExitToLobby}
                   winner={winner}
                   gameStatusState={{ gameStatus, setGameStatus }}
+                  gameOptions={options}
                 />
               ) : (
                 <Lobby

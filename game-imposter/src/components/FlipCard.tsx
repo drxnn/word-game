@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
+import { GameOptions } from "shared-types";
 
 type FlipCardProps = {
   word?: string;
   isImposter: boolean;
+  options: GameOptions;
 };
 
-export default function FlipCard({ word, isImposter }: FlipCardProps) {
+export default function FlipCard({ word, isImposter, options }: FlipCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
 
   return (
@@ -39,16 +41,22 @@ export default function FlipCard({ word, isImposter }: FlipCardProps) {
             transform: "rotateY(180deg)",
           }}
         >
-          <div className="text-center space-y-4 p-6">
+          <div className="text-center space-y-2 p-6">
             {isImposter ? (
               <>
-                <div className="text-6xl">🕵️</div>
-                <h2 className="text-4xl font-bold text-white">
+                <div className="text-4xl">🕵️</div>
+                <h2 className="text-2xl font-bold text-white">
                   You are the imposter.
                 </h2>
-                <p className="text-pink-100 text-sm italic">
-                  Don't get caught!
-                </p>
+
+                {options.imposterHint && (
+                  <>
+                    <h2 className="text-xl font-bold text-white">
+                      Your hint is:
+                    </h2>
+                    <p className="text-pink-100 text-md italic">{word}</p>
+                  </>
+                )}
               </>
             ) : (
               <>

@@ -1,9 +1,5 @@
 import WebSocket, { RawData } from "ws";
-import {
-  ClientInfo,
-  ClientToServer,
-  ServerToClient,
-} from "../schemas/gameSchema";
+import { ClientInfo, ClientToServer, ServerToClient } from "shared-types";
 
 export const socketToClient = new WeakMap<WebSocket, ClientInfo>();
 export const lobbyToSockets = new Map<string, Set<WebSocket>>();

@@ -1,4 +1,4 @@
-import { GameOptions, JoinLobbyInput } from "@/lib/types";
+import { GameOptions, JoinLobbyInput } from "shared-types";
 
 const url = "http://localhost:4000/api/lobby";
 

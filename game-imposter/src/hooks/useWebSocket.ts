@@ -1,14 +1,15 @@
 import {
   AlertState,
   ClientToServer,
+  GameOptions,
   GameStatus,
   PlayerForLobbyType,
   ServerToClientSchema,
-} from "@/lib/types";
+} from "shared-types";
 import { sendWsMessage, startWsConnection } from "@/services/ws";
 import { useRef, useEffect } from "react";
 import { Dispatch, SetStateAction } from "react";
-import { VoteState, LobbyAction } from "@/lib/types";
+import { VoteState, LobbyAction } from "shared-types";
 
 type UseWebSocketParams = {
   setNotificationAlert: Dispatch<SetStateAction<AlertState>>;
@@ -17,7 +18,7 @@ type UseWebSocketParams = {
   setVoted: Dispatch<SetStateAction<boolean>>;
   setVoteState: Dispatch<SetStateAction<VoteState>>;
   setWinner: Dispatch<SetStateAction<"allies" | "imposter" | null>>;
-
+  setOptions: Dispatch<SetStateAction<GameOptions>>;
   setGameStatus: Dispatch<SetStateAction<GameStatus>>;
   setInGame: Dispatch<SetStateAction<boolean>>;
 };
@@ -31,6 +32,7 @@ export function useWebSocket({
   setWinner,
   setInGame,
   setGameStatus,
+  setOptions,
 }: UseWebSocketParams) {
   const ws = useRef<WebSocket | null>(null);
   const sendWhenReady = (message: ClientToServer) => {
@@ -106,6 +108,10 @@ export function useWebSocket({
           });
           setInGame(true);
           setGameStatus(GameStatus.started);
+          setOptions((p) => ({
+            ...p,
+            imposterHint: playerInfo.options.imposterHint ?? false,
+          }));
 
           break;
         }
@@ -182,7 +188,7 @@ export function useWebSocket({
           });
           setVoted(false);
           setVoteState("idle");
-          setGameStatus(GameStatus.idle);
+          setGameStatus(GameStatus.started);
           break;
         }
         case "gameOver": {
@@ -240,13 +246,8 @@ export function useWebSocket({
           const { player, gameStatus } = parsed.data.msg;
 
           lobbyDispatch({
-            type: "PLAYER_JOINED",
-            payload: {
-              ...player,
-              votedOut: false,
-              playerLeft: false,
-              inLobby: true,
-            },
+            type: "PLAYER_RECONNECTED",
+            payload: player,
           });
           console.log(
             `the gameStatus received from the backend is : ${gameStatus}`,

@@ -9,7 +9,7 @@ import {
   LeaveLobbySchema,
   GameStatus,
   PlayerVoteResult,
-} from "../schemas/gameSchema";
+} from "shared-types";
 import * as lobbiesModel from "../db/models/lobbies";
 import * as playersModel from "../db/models/players";
 import { enterPlayer } from "../db/models/players";
@@ -124,9 +124,15 @@ class _GameManager {
     await lobbiesModel.resetLobbyVotingRound(lobbyId);
     await lobbiesModel.clearVotes(lobbyId);
     const imposterKnows = options?.imposterKnows ?? false;
+    const numOfImposters = options?.numOfImposters ?? 1;
+    const imposterHint = options?.imposterHint ?? false;
+
     const round = await lobbiesModel.incrementVotingRound(lobbyId);
-    await lobbiesModel.setImposterKnows(lobbyId, imposterKnows);
-    const imposter = await playersModel.assignImposter(lobbyId);
+    if (imposterKnows) {
+      await lobbiesModel.setImposterKnows(lobbyId, imposterKnows);
+    }
+
+    const imposter = await playersModel.assignImposter(lobbyId, numOfImposters);
     console.log("beforec change game status");
     await lobbiesModel.changeGameStatus(lobbyId, GameStatus.started);
     console.log("we are here");

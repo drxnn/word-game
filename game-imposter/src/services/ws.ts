@@ -1,4 +1,4 @@
-import { ClientToServer } from "@/lib/types";
+import { ClientToServer } from "shared-types";
 
 export let socket: WebSocket | null = null;
 

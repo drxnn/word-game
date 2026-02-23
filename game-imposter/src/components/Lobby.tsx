@@ -1,7 +1,7 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GameOptions, LobbyType, Player } from "@/lib/types";
+import { GameOptions, LobbyType, Player } from "shared-types";
 
 import {
   Dialog,

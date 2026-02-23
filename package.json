@@ -1,0 +1,9 @@
+{
+  "name": "codename",
+  "private": true,
+  "workspaces": [
+    "game-imposter",
+    "server",
+    "types"
+  ]
+}

@@ -1,4 +1,4 @@
-import { GameStatus } from "../../schemas/gameSchema";
+import { GameStatus } from "shared-types";
 import { query, connect } from "../index";
 import { enterPlayer } from "./players";
 

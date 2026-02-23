@@ -8,15 +8,47 @@ export enum GameStatus {
   gameOver = "GAME_OVER",
 }
 
+export type LobbyAction =
+  | { type: "PLAYER_JOINED"; payload: PlayerForLobbyType }
+  | { type: "PLAYER_LEFT"; payload: { playerId: string } }
+  | { type: "PLAYER_VOTED_OUT"; payload: { playerId: string } }
+  | { type: "PLAYER_BACK_IN_LOBBY"; payload: { playerId: string } }
+  | { type: "PLAYER_VOTED"; payload: { targetId: string } }
+  | {
+      type: "VOTES_COUNTED";
+      payload: { votes: { id: string; voteCount: number }[] };
+    }
+  | {
+      type: "PLAYER_INFO";
+      payload: { assignedWord: string; isImposter: boolean };
+    }
+  | { type: "PLAYER_RECONNECTED"; payload: Player }
+  | { type: "GAME_OVER"; payload: { lastPlayerToBeVotedOutId: string } }
+  | { type: "EXIT_TO_LOBBY" }
+  | { type: "SET_LOBBY"; payload: LobbyType }
+  | { type: "RESET" };
+
+export type AlertState = {
+  type: "error" | "success" | "info";
+  message: string;
+  title?: string;
+} | null;
+
 export const PlayerSchema = z.object({
   id: z.uuid(),
-  name: z.string().min(2).max(20).trim(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "name must be at least 2 characters")
+    .max(20, "Name can't exceed 20 characters")
+    .regex(/^[a-zA-Z]+$/, "Name can only contain letters"),
   lobbyId: z.uuid(),
   isImposter: z.boolean(),
   isHost: z.boolean(),
-  assignedWord: z.string().max(50).trim(),
+  assignedWord: z.string().max(50).trim().nullable(),
   votes: z.number(),
 });
+
 export const playerVoteResultSchema = PlayerSchema.pick({
   name: true,
   id: true,
@@ -30,15 +62,17 @@ export const LobbySchema = z.object({
     .string()
     .length(6)
     .regex(/^[A-Z0-9]+$/),
-  hostName: z.string().trim().min(2).max(20),
+  hostName: z.string().trim().min(2).max(20).optional().nullable(),
   imposterKnows: z.boolean(),
   votingRound: z.number().min(0),
   createdAt: z.string().optional(),
-  wordPairId: z.uuid(),
+  wordPairId: z.uuid().optional().nullable(),
+  gameStarted: z.boolean().optional(),
 });
 
 export const gameOptionsSchema = z.object({
   imposterKnows: z.boolean().optional(),
+  imposterHint: z.boolean().optional(),
   numOfImposters: z
     .preprocess(
       (val) => (val === null ? undefined : val),
@@ -64,7 +98,6 @@ export const ClientInfoSchema = z.object({
 });
 
 export type ClientInfo = z.infer<typeof ClientInfoSchema>;
-
 export const createLobbySchema = z.object({
   name: z.string().trim().min(2).max(20),
   options: gameOptionsSchema,
@@ -89,6 +122,17 @@ export const voteSchema = z.object({
   targetId: z.uuid(),
 });
 
+export const playerForLobbySchema = PlayerSchema.pick({
+  name: true,
+  lobbyId: true,
+  id: true,
+}).extend({
+  votes: z.number(),
+  votedOut: z.boolean(),
+  inLobby: z.boolean(),
+  playerLeft: z.boolean().optional(),
+});
+
 export const endGameSchema = z.object({
   lobbyId: z.uuid(),
 });
@@ -99,7 +143,6 @@ export const joinLobbySchema = createLobbySchema.pick({ name: true }).extend({
     .regex(/^[A-Z0-9]+$/)
     .length(6),
 });
-
 export const getLobbySchema = joinLobbySchema.pick({ code: true });
 
 export const leaveLobbySchema = joinLobbySchema.pick({ code: true }).extend({
@@ -126,6 +169,12 @@ export const ServerToClientMapSchema = z.object({
     }),
     gameStatus: z.enum(GameStatus),
   }),
+  playerInfo: PlayerSchema.pick({
+    name: true,
+    isHost: true,
+    isImposter: true,
+    assignedWord: true,
+  }).extend({ options: gameOptionsSchema }),
   reconnected: z.object({
     player: PlayerSchema.pick({
       name: true,
@@ -156,7 +205,7 @@ export const ServerToClientMapSchema = z.object({
   }).extend({
     lastPlayerToBeVotedOutId: z.uuid(),
     winner: z.union([z.literal("imposter"), z.literal("allies")]),
-    gameStatus: GameStatus,
+    gameStatus: z.enum(GameStatus),
   }),
   playerVoted: ClientInfoSchema.pick({
     name: true,
@@ -170,7 +219,7 @@ export const ServerToClientMapSchema = z.object({
   votesCounted: z.object({
     lobbyId: z.uuid(),
     votes: z.array(playerVoteResultSchema),
-    gameStatus: GameStatus,
+    gameStatus: z.enum(GameStatus),
   }),
   roundEnded: z.array(PlayerSchema),
   gameStarted: z.array(PlayerSchema),
@@ -225,16 +274,28 @@ export const ClientToServerMapSchema = z.object({
 
 export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
-    type: z.literal("playerBackInLobby"),
-    msg: ServerToClientMapSchema.shape.playerBackInLobby,
+    type: z.literal("voteState"),
+    msg: ClientToServerMapSchema.shape.voteState,
+  }),
+  z.object({
+    type: z.literal("reconnected"),
+    msg: ServerToClientMapSchema.shape.reconnected,
   }),
   z.object({
     type: z.literal("playerReconnected"),
     msg: ServerToClientMapSchema.shape.playerReconnected,
   }),
   z.object({
+    type: z.literal("playerBackInLobby"),
+    msg: ServerToClientMapSchema.shape.playerBackInLobby,
+  }),
+  z.object({
     type: z.literal("lobbyCreated"),
     msg: ServerToClientMapSchema.shape.lobbyCreated,
+  }),
+  z.object({
+    type: z.literal("playerInfo"),
+    msg: ServerToClientMapSchema.shape.playerInfo,
   }),
   z.object({
     type: z.literal("gameOver"),
@@ -242,10 +303,6 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("imposterVotedOut"),
-    msg: ServerToClientMapSchema.shape.playerVotedOut,
-  }),
-  z.object({
-    type: z.literal("playerVotedOut"),
     msg: ServerToClientMapSchema.shape.playerVotedOut,
   }),
   z.object({
@@ -267,6 +324,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerVoted"),
     msg: ServerToClientMapSchema.shape.playerVoted,
+  }),
+  z.object({
+    type: z.literal("playerVotedOut"),
+    msg: ServerToClientMapSchema.shape.playerVotedOut,
   }),
   z.object({
     type: z.literal("startGameInfo"),
@@ -296,6 +357,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
 
 export const ClientToServerSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("voteState"),
+    msg: ClientToServerMapSchema.shape.voteState,
+  }),
+  z.object({
     type: z.literal("playerBackInLobby"),
     msg: ServerToClientMapSchema.shape.playerBackInLobby,
   }),
@@ -305,10 +370,7 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
       msg: ClientToServerMapSchema.shape.createLobby,
     })
     .strict(),
-  z.object({
-    type: z.literal("voteState"),
-    msg: ClientToServerMapSchema.shape.voteState,
-  }),
+
   z
     .object({
       type: z.literal("joinLobby"),
@@ -349,14 +411,27 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
 
 export type ServerToClientMap = z.infer<typeof ServerToClientMapSchema>;
 export type ClientToServerMap = z.infer<typeof ClientToServerMapSchema>;
+
 export type ClientToServer = z.infer<typeof ClientToServerSchema>;
 export type ServerToClient = z.infer<typeof ServerToClientSchema>;
+export type PlayerForLobbyType = z.infer<typeof playerForLobbySchema>;
+
 export type Lobby = z.infer<typeof LobbySchema>;
 export type Player = z.infer<typeof PlayerSchema>;
+export type LobbyType = {
+  lobby: Lobby;
+  player: Player;
+  players: PlayerForLobbyType[];
+};
+
 export type GetLobbySchema = z.infer<typeof getLobbySchema>;
 export type LeaveLobbySchema = z.infer<typeof leaveLobbySchema>;
+
 export type JoinLobbyInput = z.infer<typeof joinLobbySchema>;
+
 export type CreateLobbyInput = z.infer<typeof createLobbySchema>;
 export type GameOptions = z.infer<typeof gameOptionsSchema>;
+
 export type DeleteLobbySchema = z.infer<typeof deleteLobbySchema>;
 export type WordPair = z.infer<typeof WordPairSchema>;
+export type VoteState = z.infer<typeof ClientToServerMapSchema.shape.voteState>;
