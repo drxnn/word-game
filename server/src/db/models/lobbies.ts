@@ -174,9 +174,7 @@ export async function haveAllPlayersVoted(
     [lobbyId, votingRound],
   );
   const { totalPlayers, totalVotes } = result.rows[0];
-  console.log(
-    `total players is ${totalPlayers} and totalvotes is ${totalVotes}`,
-  );
+
   return Number(totalVotes) == Number(totalPlayers);
 }
 
@@ -202,6 +200,6 @@ export async function getGameStatus(lobbyId: string) {
     `,
     [lobbyId],
   );
-  console.log(`result . rows [0] is $${result.rows[0]} `);
+
   return result.rows[0]?.gameStatus;
 }

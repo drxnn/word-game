@@ -37,7 +37,6 @@ export function useWebSocket({
   const ws = useRef<WebSocket | null>(null);
   const sendWhenReady = (message: ClientToServer) => {
     if (!ws.current) {
-      console.log("ws is null");
       return;
     }
     if (ws.current.readyState === WebSocket.OPEN) {
@@ -60,18 +59,8 @@ export function useWebSocket({
 
   useEffect(() => {
     ws.current = startWsConnection();
-    ws.current.addEventListener("close", (e) => {
-      console.log(
-        "CLOSE CODE:",
-        e.code,
-        "reason:",
-        e.reason,
-        "wasClean:",
-        e.wasClean,
-      );
-    });
+
     const handleMessage = (e: MessageEvent) => {
-      console.log(`message received: ${e.data}`);
       let message;
       try {
         message = JSON.parse(e.data);
@@ -82,15 +71,11 @@ export function useWebSocket({
 
       const parsed = ServerToClientSchema.safeParse(message);
       if (!parsed.success) {
-        console.log(`the data is ${parsed.data}`);
-        console.log("schema validation failed:", parsed.error.issues);
         return;
       }
 
       switch (parsed.data.type) {
         case "playerJoined": {
-          console.log(`player that joined is ${parsed.data.msg.name}`);
-
           const newPlayer = parsed.data.msg as PlayerForLobbyType;
 
           lobbyDispatch({ type: "PLAYER_JOINED", payload: newPlayer }); // 2
@@ -193,7 +178,6 @@ export function useWebSocket({
         }
         case "gameOver": {
           const { lastPlayerToBeVotedOutId, winner, name } = parsed.data.msg;
-          console.log("we are inside game over");
 
           setWinner(winner === "allies" ? "allies" : "imposter");
 
@@ -249,9 +233,7 @@ export function useWebSocket({
             type: "PLAYER_RECONNECTED",
             payload: player,
           });
-          console.log(
-            `the gameStatus received from the backend is : ${gameStatus}`,
-          );
+
           setGameStatus(gameStatus ?? GameStatus.idle);
           break;
         }
@@ -261,7 +243,6 @@ export function useWebSocket({
       }
     };
 
-    console.log(`ws is ${ws.current}`);
     const handleClose = () => console.log("ws closed");
     const handleError = (err: Event) => console.error("ws error", err);
     ws.current.addEventListener("message", handleMessage);

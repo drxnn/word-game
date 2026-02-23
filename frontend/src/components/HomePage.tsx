@@ -71,8 +71,6 @@ export default function HomePage() {
   }, [notificationAlert]);
 
   const handleExitToLobby = () => {
-    console.log("exiting to lobby");
-
     lobbyDispatch({ type: "EXIT_TO_LOBBY" }); // 1
 
     sendWhenReady({
@@ -90,8 +88,6 @@ export default function HomePage() {
 
   const handleCreateLobby = async () => {
     if (playerName.trim()) {
-      console.log(playerName);
-
       const parseResult = PlayerSchema.shape.name.safeParse(playerName);
       if (parseResult.error) {
         setNotificationAlert({
@@ -123,12 +119,11 @@ export default function HomePage() {
         } as ClientToServer;
 
         sendWhenReady(messageToSend);
-
-        console.log(`player is ${lobby.player}`);
-        console.log("creation was successful");
-        console.log(result);
       } catch (err) {
-        console.log(err);
+        setNotificationAlert({
+          type: "error",
+          message: `Lobby creation failed: err: ${err}`,
+        });
       }
     }
   };
@@ -180,7 +175,7 @@ export default function HomePage() {
         });
         return;
       }
-      console.log("Joining lobby:", lobbyCode, "as:", playerName);
+
       try {
         const result = (await joinLobby({
           name: parseResult.data,
@@ -204,10 +199,13 @@ export default function HomePage() {
             code: lobbyCode,
           },
         } as ClientToServer;
-        console.log("sending join");
+
         sendWhenReady(messageToSend);
       } catch (err) {
-        console.log(err);
+        setNotificationAlert({
+          type: "error",
+          message: `Something went wrong while joining lobby. err:${err}`,
+        });
       }
     }
   };
@@ -217,7 +215,7 @@ export default function HomePage() {
     setVoting(true);
     try {
       const targetId = e.currentTarget.dataset.playerId;
-      console.log(`the target id is: ${targetId}`);
+
       const messageToSend = {
         type: "votePlayer",
         msg: {

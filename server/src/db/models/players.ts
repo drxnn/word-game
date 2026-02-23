@@ -194,8 +194,6 @@ export async function getPlayerInLobby(lobbyId: string, playerId: string) {
 export async function chooseWordPairId(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  console.log("inside chooseWordPairId");
-
   const result = await query(
     `
     UPDATE lobbies
@@ -214,8 +212,6 @@ export async function chooseWordPairId(lobbyId: string) {
     [lobbyId],
   );
 
-  console.log("after result chooseWordPairId");
-
   if (result.rows[0]?.wordPairId) {
     await query(
       `
@@ -226,8 +222,6 @@ export async function chooseWordPairId(lobbyId: string) {
     );
   }
 
-  console.log("after inserting into used words per lobby");
-  console.log(`the results are ${result.rows[0].wordPairId}`);
   return result.rows[0].wordPairId;
 }
 
@@ -264,12 +258,11 @@ export async function assignWordsToPlayers(lobbyId: string) {
 
   // check whos the imposter
   // assign imposter second word in pair, everyone else gets first
-  console.log("inside assignWordsToplayer");
+
   let wordPairId = await chooseWordPairId(lobbyId);
   if (!wordPairId) {
     throw Error("Something went wrong with fetching a word pair!");
   }
-  console.log("after word pair id");
 
   let imposters = await getImposterFromLobby(lobbyId);
   if (!imposters.length) {
@@ -277,7 +270,6 @@ export async function assignWordsToPlayers(lobbyId: string) {
   }
   //
 
-  console.log("trying to fetch words");
   let { rows } = await query(
     `
     SELECT real_word, imposter_word FROM word_pairs WHERE id = $1
@@ -293,7 +285,7 @@ export async function assignWordsToPlayers(lobbyId: string) {
 
   // assign word
 
-  console.log("trying to assign words");
+  ("trying to assign words");
   let result = await query(
     `
    UPDATE players
@@ -303,6 +295,6 @@ export async function assignWordsToPlayers(lobbyId: string) {
     `,
     [realWord, imposterWord, lobbyId],
   );
-  console.log("after assign words");
+
   return result.rows;
 }

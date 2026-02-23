@@ -21,8 +21,7 @@ export async function createLobby(
 ) {
   try {
     // ws token generated
-    console.log("we are here");
-    console.log(`req body is: ${req.body}`);
+
     const { name, options } = req.body;
     // generate a websocket token for authentication later on
 
@@ -31,9 +30,6 @@ export async function createLobby(
       const prettyError = z.prettifyError(parsed.error);
       return res.status(400).send(prettyError);
     }
-    console.log("body:", req.body);
-    console.log("options type:", typeof options);
-    console.log("parsed.data is: ", parsed.data);
 
     const { lobby, player } = await GameManager.startLobby(parsed.data);
     req.session.player = player;
@@ -57,7 +53,7 @@ export async function joinLobby(
     // dont forget ws token, generate and send for subsequent comms
 
     const { name, code } = req.body;
-    console.log(`name is ${name}, code to join is ${code}`);
+
     const parsed = joinLobbySchema.safeParse({ name, code });
     if (!parsed.success) {
       const prettyError = z.prettifyError(parsed.error);
@@ -65,7 +61,7 @@ export async function joinLobby(
     }
 
     const { player, players, lobby } = await GameManager.joinLobby(parsed.data);
-    console.log("we are here, after the call to joinLobby");
+
     req.session.player = player;
     req.session.lobby = lobby;
 

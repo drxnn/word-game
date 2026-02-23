@@ -50,6 +50,4 @@ app.use((request, response) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`Word-Imposter server listening on http://localhost:${PORT}/api`);
-});
+server.listen(PORT, () => {});

@@ -24,7 +24,6 @@ class _GameManager {
     let imposterKnows = options?.imposterKnows ?? false;
     for (let i = 0; i < 5; i++) {
       let lobbyCode = generateCode();
-      console.log(`generated lobby code is: ${lobbyCode}`);
 
       try {
         const lobby = await lobbiesModel.createLobby(lobbyCode);
@@ -133,13 +132,11 @@ class _GameManager {
     }
 
     const imposter = await playersModel.assignImposter(lobbyId, numOfImposters);
-    console.log("beforec change game status");
+
     await lobbiesModel.changeGameStatus(lobbyId, GameStatus.started);
-    console.log("we are here");
 
     await playersModel.assignWordsToPlayers(lobbyId);
 
-    console.log("assigning word");
     return {
       round,
       imposter,
@@ -233,7 +230,7 @@ class _GameManager {
     if (!lobbyId)
       throw new Error("Cannot get lobby_status, lobby ID not defined");
     const status = await lobbiesModel.getGameStatus(lobbyId);
-    console.log(`the status is ${status}`);
+
     return status;
   }
 
