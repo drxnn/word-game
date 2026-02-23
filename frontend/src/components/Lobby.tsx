@@ -167,7 +167,6 @@ export default function Lobby({
                         />
                       </div>
 
-                      {/* Number of Imposters */}
                       <div className="space-y-2">
                         <Label className="text-sm font-medium text-indigo-800">
                           Number of imposters
@@ -207,7 +206,6 @@ export default function Lobby({
                         </div>
                       </div>
 
-                      {/* Summary */}
                       <div className="rounded-lg bg-gradient-to-br from-violet-50 to-indigo-50 border border-indigo-100 px-4 py-3 text-xs text-indigo-700 space-y-1">
                         <p>
                           <span className="font-semibold">
@@ -230,10 +228,6 @@ export default function Lobby({
             </div>
           </div>
         </Card>
-
-        <div className="text-center mt-6">
-          <span className="text-4xl">👥</span>
-        </div>
       </div>
     </div>
   );

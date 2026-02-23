@@ -106,7 +106,6 @@ RETURNING *
 export async function countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
-  // count votes for current round in lobby
   let votingRound = await getRoundFromLobby(lobbyId);
 
   const { rows } = await query(
@@ -153,7 +152,6 @@ export async function checkIfAllPlayersVoted(
   return Number(totalPlayers) === Number(votesCast) ? true : false;
 }
 
-// player votes for player
 export async function getRoundFromLobby(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
@@ -239,7 +237,6 @@ export async function getImposterFromLobby(lobbyId: string) {
   return result.rows.map((row) => row.id);
 }
 
-// how many players in game that havent been voted out
 export async function playersLeftInGame(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
 
@@ -255,9 +252,6 @@ export async function playersLeftInGame(lobbyId: string) {
 
 export async function assignWordsToPlayers(lobbyId: string) {
   if (!lobbyId) throw new Error("Lobby ID is required");
-
-  // check whos the imposter
-  // assign imposter second word in pair, everyone else gets first
 
   let wordPairId = await chooseWordPairId(lobbyId);
   if (!wordPairId) {
@@ -283,9 +277,6 @@ export async function assignWordsToPlayers(lobbyId: string) {
     throw new Error("Something went wrong, word_pair not found.");
   }
 
-  // assign word
-
-  ("trying to assign words");
   let result = await query(
     `
    UPDATE players

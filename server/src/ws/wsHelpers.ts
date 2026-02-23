@@ -32,7 +32,7 @@ export const broadCastToLobby = (
   msg: ServerToClient | ClientToServer,
 ) => {
   let allSockets = lobbyToSockets.get(lobbyId);
-  // make sure msg is stringified json
+
   let stringifiedMsg = JSON.stringify(msg);
 
   allSockets?.forEach((x) => {
@@ -55,8 +55,6 @@ export const addToClientInfo = (
 export const parseWsMessage = (
   data: RawData,
 ): { ok: true; value: any } | { ok: false; error: string } => {
-  // goodfornow
-
   if (typeof data === "string") {
     try {
       return { ok: true, value: JSON.parse(data) };

@@ -174,8 +174,6 @@ class _GameManager {
   }
 
   async deleteLobby(lobbyId: string) {
-    // delete
-
     const result = await lobbiesModel.deleteLobby(lobbyId);
     if (!result.rows || result.rows.length === 0) {
       throw new Error("Lobby not found or already deleted");

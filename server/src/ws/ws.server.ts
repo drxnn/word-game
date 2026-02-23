@@ -150,7 +150,6 @@ wss.on("connection", (ws, req) => {
                 },
               });
             }
-            // now we add
 
             addSocketToLobby(lobby.id, ws);
 
@@ -248,8 +247,6 @@ wss.on("connection", (ws, req) => {
         case "voteState": {
           const voteState = parsed.data.msg;
           if (voteState === "start") {
-            // respond to everyone that vote has started
-
             if (clientInfo.lobbyId) {
               await GameManager.setGameStatus(
                 clientInfo.lobbyId,
@@ -278,10 +275,7 @@ wss.on("connection", (ws, req) => {
               clientInfo.lobbyId,
             );
 
-            // if player leaves the lobby mid vote, just cancel the round
             if (gameStatus === "VOTING") {
-              // just vote them out so players can continue the game without them
-              // // but tell the client that player left and wasnt "voted out"
               await GameManager.playerVotedOut(
                 clientInfo.lobbyId,
                 clientInfo.playerId,
@@ -312,8 +306,6 @@ wss.on("connection", (ws, req) => {
         }
 
         case "votePlayer": {
-          // use a transaction here later
-
           clientInfo = addToClientInfo(
             ws,
             { targetId: parsed.data.msg.targetId },

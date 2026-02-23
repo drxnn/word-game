@@ -10,20 +10,13 @@ import {
 import { success, z } from "zod";
 import { getLobbyByCode } from "../db/models/lobbies";
 
-/**
- * Create a lobby
- */
-// make a session
 export async function createLobby(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    // ws token generated
-
     const { name, options } = req.body;
-    // generate a websocket token for authentication later on
 
     const parsed = createLobbySchema.safeParse({ name, options });
     if (!parsed.success) {
@@ -41,17 +34,12 @@ export async function createLobby(
   }
 }
 
-/**
- * Join an existing lobby
- */
 export async function joinLobby(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    // dont forget ws token, generate and send for subsequent comms
-
     const { name, code } = req.body;
 
     const parsed = joinLobbySchema.safeParse({ name, code });
