@@ -36,7 +36,12 @@ app.use(
     },
   }),
 );
-app.use(cors({ credentials: true, origin: "http://localhost:5173" }));
+app.use(
+  cors({
+    credentials: true,
+    origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+  }),
+);
 app.use(express.json());
 
 app.get("/ping", (req, res) => res.send("pong"));
