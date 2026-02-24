@@ -8,6 +8,10 @@ After everyone has given their hint, the group votes to eliminate the player the
 
 ---
 
+**Play here:** https://frontend-production-51a7.up.railway.app/
+
+---
+
 ## How to Play
 
 Create a lobby and share the code with your friends so they can join. Once everyone is in, the host starts the game. Each player will receive their assigned word on screen. From there, put your phones down and play the round going around the circle, say your hint out loud, then vote when everyone is done.
