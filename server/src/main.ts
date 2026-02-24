@@ -12,7 +12,9 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { pool } from "./db/index";
 
 export const app = express();
+app.set("trust proxy", 1);
 export const server = http.createServer(app);
+
 import "./ws/ws.server";
 
 const pgStore = pgSimple(session);
