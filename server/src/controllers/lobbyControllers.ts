@@ -9,6 +9,7 @@ import {
 } from "shared-types";
 import { success, z } from "zod";
 import { getLobbyByCode } from "../db/models/lobbies";
+import jwt from "jsonwebtoken";
 
 export async function createLobby(
   req: Request,
@@ -25,10 +26,17 @@ export async function createLobby(
     }
 
     const { lobby, player } = await GameManager.startLobby(parsed.data);
-    req.session.player = player;
-    req.session.lobby = lobby;
 
-    return res.status(201).json({ lobby, player });
+    const token = jwt.sign(
+      {
+        player: player,
+        lobby: lobby,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: "2h" },
+    );
+
+    return res.status(201).json({ lobby, player, token });
   } catch (err) {
     next(err);
   }
@@ -50,10 +58,17 @@ export async function joinLobby(
 
     const { player, players, lobby } = await GameManager.joinLobby(parsed.data);
 
-    req.session.player = player;
-    req.session.lobby = lobby;
+    const token = jwt.sign(
+      {
+        player: player,
+        lobby: lobby,
+        players: players,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: "2h" },
+    );
 
-    return res.status(200).json({ player, players, lobby });
+    return res.status(200).json({ player, players, lobby, token });
   } catch (err) {
     next(err);
   }

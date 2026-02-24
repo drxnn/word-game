@@ -99,26 +99,28 @@ export default function HomePage() {
 
       try {
         const result = await createLobby({ name: parseResult.data, options });
+        console.log(`result.lobby.id is ${result?.lobby.id}`);
+        if (result) {
+          lobbyDispatch({
+            type: "SET_LOBBY",
+            payload: {
+              lobby: result.lobby,
+              player: { ...result.player, isHost: result.player?.isHost },
+              players: [{ ...result.player, inLobby: true }],
+            },
+          });
+          const messageToSend = {
+            type: "createLobby",
+            msg: {
+              lobbyId: result.lobby.id,
+              playerId: result.player.id,
+              name: result.player.name,
+              code: result.lobby.code,
+            },
+          } as ClientToServer;
 
-        lobbyDispatch({
-          type: "SET_LOBBY",
-          payload: {
-            lobby: result.lobby,
-            player: { ...result.player, isHost: result.player?.isHost },
-            players: [{ ...result.player, inLobby: true }],
-          },
-        });
-        const messageToSend = {
-          type: "joinLobby",
-          msg: {
-            lobbyId: result.lobby.id,
-            playerId: result.player.id,
-            name: result.player.name,
-            code: result.lobby.code,
-          },
-        } as ClientToServer;
-
-        sendWhenReady(messageToSend);
+          sendWhenReady(messageToSend);
+        }
       } catch (err) {
         setNotificationAlert({
           type: "error",
@@ -149,10 +151,12 @@ export default function HomePage() {
     setVoteState("idle");
     setInGame(false);
     setWinner(null);
+    localStorage.removeItem("token");
   };
 
   const handleStartGame = () => {
     if (lobby.lobby.id) {
+      console.log(`lobby.lobby.id is ${lobby.lobby.id}`);
       const messageToSend = {
         type: "startGame",
         msg: {

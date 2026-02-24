@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "test": "npx tsx src/tests/lobbyControllers.test.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "dev": "cd ../types && npm run build && cd ../server && ts-node-dev --respawn src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p .",
     "db:migrate": "node dist/db/migrate.js"
@@ -16,26 +16,22 @@
   "license": "ISC",
   "dependencies": {
     "camelcase-keys": "^10.0.2",
-    "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "express-session": "^1.19.0",
+    "jsonwebtoken": "^9.0.3",
     "nanoid": "^5.1.6",
     "pg": "^8.16.3",
+    "shared-types": "*",
     "uuid": "^13.0.0",
     "ws": "^8.19.0",
-    "zod": "^4.3.5",
-    "shared-types": "*"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@types/connect-pg-simple": "^7.0.3",
-    "@types/cookie": "^0.6.0",
-    "@types/cookie-signature": "^1.1.2",
     "@types/cors": "^2.8.19",
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
-    "@types/express-session": "^1.18.2",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.0.3",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.3",

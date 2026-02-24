@@ -4,7 +4,8 @@ const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:4000/";
 export let socket: WebSocket | null = null;
 
 export const startWsConnection = (wsUri = WS_URL) => {
-  socket = new WebSocket(wsUri);
+  const token = localStorage.getItem("token");
+  socket = new WebSocket(token ? `${wsUri}?token=${token}` : wsUri);
 
   socket.addEventListener("open", () => {
     console.log("connected to websocket");

@@ -1,9 +1,14 @@
 import WebSocket, { WebSocketServer } from "ws";
-import { server, sessionStore } from "../main";
-import { parse as parseCookie } from "cookie";
-import { unsign } from "cookie-signature";
+import { server } from "../main";
+
 import { GameManager } from "../services/gameManager";
-import { ClientInfo, ClientToServerSchema, GameStatus } from "shared-types";
+import {
+  ClientInfo,
+  ClientToServerSchema,
+  GameStatus,
+  Lobby,
+  Player,
+} from "shared-types";
 import {
   addSocketToLobby,
   addToClientInfo,
@@ -14,7 +19,8 @@ import {
   sendError,
   socketToClient,
 } from "./wsHelpers";
-import { SessionData } from "express-session";
+
+import jwt from "jsonwebtoken";
 
 const wss = new WebSocketServer({
   server,
@@ -31,8 +37,12 @@ const wss = new WebSocketServer({
   maxPayload: 1024 * 24,
 });
 const disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
-wss.on("connection", (ws, req) => {
+wss.on("connection", async (ws, req) => {
   const clientId = crypto.randomUUID();
+
+  const url = new URL(req.url!, `wss://${req.headers.host}`);
+  const token = url.searchParams.get("token");
+
   let isAlive = true;
 
   ws.on("pong", () => {
@@ -49,150 +59,128 @@ wss.on("connection", (ws, req) => {
     ws.ping();
   }, 35000);
 
-  const cookie = parseCookie(req.headers.cookie ?? "");
-  let session: SessionData | null | undefined;
-  let unsigned: string;
-  console.log(`cookie is :${cookie}`);
-  if (cookie) {
-    const rawCookie = cookie["connect.sid"];
-    if (rawCookie) {
-      const raw = decodeURIComponent(rawCookie);
-      unsigned = unsign(raw.slice(2), process.env.SESSION_SECRET!) || ""; // empty string is falsy so this works
-      console.log(`unsigned  is :${unsigned}`);
+  if (token) {
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as {
+        player: Player;
+        lobby: Lobby;
+      };
+      const { player, lobby } = payload;
 
-      if (unsigned && typeof unsigned === "string") {
-        sessionStore.get(unsigned, async (err, s) => {
-          try {
-            if (err) {
-              throw err;
-            }
-            if (!s) {
-              return;
-            }
-            session = s;
+      // const cookie = parseCookie(req.headers.cookie ?? "");
+      // let session: SessionData | null | undefined;
+      // let unsigned: string;
 
-            const { player, lobby } = session as any;
+      const isActive = await GameManager.isLobbyActive(lobby.id);
+      if (!isActive) {
+        return;
+      }
 
-            const isActive = await GameManager.isLobbyActive(lobby.id);
-            if (!isActive) {
-              sessionStore.destroy(unsigned, () => {});
-              return;
-            }
+      const existing = disconnectTimers.get(player.id);
+      if (existing) {
+        clearTimeout(existing);
+        disconnectTimers.delete(player.id);
+      }
 
-            const existing = disconnectTimers.get(player.id);
-            if (existing) {
-              clearTimeout(existing);
-              disconnectTimers.delete(player.id);
-            }
+      addToClientInfo(
+        ws,
+        {
+          playerId: player.id,
+          lobbyId: lobby.id,
+          name: player.name,
+          code: lobby.code,
+          clientId,
+        },
+        clientId,
+      );
 
-            addToClientInfo(
-              ws,
-              {
-                playerId: player.id,
-                lobbyId: lobby.id,
-                name: player.name,
-                code: lobby.code,
-                sessionId: unsigned,
-                clientId,
-              },
-              clientId,
-            );
+      const freshPlayer = await GameManager.getPlayerInLobby(
+        lobby.id,
+        player.id,
+      );
+      const freshLobby = await GameManager.getLobby(lobby.id);
+      const players = await GameManager.getAllPlayers(lobby.id);
 
-            const freshPlayer = await GameManager.getPlayerInLobby(
-              lobby.id,
-              player.id,
-            );
-            const freshLobby = await GameManager.getLobby(lobby.id);
-            const players = await GameManager.getAllPlayers(lobby.id);
-            if (!freshPlayer || !freshLobby) {
-              sessionStore.destroy(unsigned, () => {});
-              return;
-            }
+      let gameStatus = await GameManager.getGameStatus(freshLobby.id);
 
-            let gameStatus = await GameManager.getGameStatus(freshLobby.id);
+      if (gameStatus === GameStatus.voting || gameStatus === GameStatus.voted) {
+        const votes = await GameManager.countVotes(freshLobby.id);
 
-            if (
-              gameStatus === GameStatus.voting ||
-              gameStatus === GameStatus.voted
-            ) {
-              const votes = await GameManager.countVotes(freshLobby.id);
+        const playerThatIsReconnectingVotes = votes.find(
+          (x) => x.id === freshPlayer.id,
+        );
 
-              const playerThatIsReconnectingVotes = votes.find(
-                (x) => x.id === freshPlayer.id,
-              );
-
-              broadCastToLobby(lobby.id, {
-                type: "playerReconnected",
-                msg: {
-                  player: {
-                    id: freshPlayer.id,
-                    lobbyId: freshPlayer.lobbyId,
-                    name: freshPlayer.name,
-                    isHost: freshPlayer.isHost ?? false,
-                    assignedWord: freshPlayer.assignedWord,
-                    isImposter: freshPlayer.isImposter,
-                    votes:
-                      Number(playerThatIsReconnectingVotes?.voteCount) ?? 0,
-                  },
-                  gameStatus: gameStatus ?? null,
-                },
-              });
-            } else {
-              broadCastToLobby(lobby.id, {
-                type: "playerReconnected",
-                msg: {
-                  player: {
-                    id: freshPlayer.id,
-                    lobbyId: freshPlayer.lobbyId,
-                    name: freshPlayer.name,
-                    isHost: freshPlayer.isHost ?? false,
-                    assignedWord: freshPlayer.assignedWord,
-                    isImposter: freshPlayer.isImposter,
-                    votes: 0,
-                  },
-                  gameStatus: gameStatus ?? null,
-                },
-              });
-            }
-
-            addSocketToLobby(lobby.id, ws);
-
-            //
-
-            ws.send(
-              JSON.stringify({
-                type: "reconnected",
-                msg: {
-                  player: {
-                    id: freshPlayer.id,
-                    name: freshPlayer.name,
-                    isHost: freshPlayer.isHost ?? false,
-                    assignedWord: freshPlayer.assignedWord,
-                    isImposter: freshPlayer.isImposter,
-                  },
-                  lobby: {
-                    ...freshLobby,
-                    wordPairId: freshLobby.wordPairId,
-                  },
-                  players: players.map((x) => ({
-                    ...x,
-                    assignedWord: x.assignedWord,
-                    isHost: x.isHost ?? false,
-                    votes: 0,
-                  })),
-                  gameStatus: gameStatus ?? null,
-                },
-              }),
-            );
-          } catch (err) {
-            sessionStore.destroy(unsigned, () => {});
-          }
+        broadCastToLobby(lobby.id, {
+          type: "playerReconnected",
+          msg: {
+            player: {
+              id: freshPlayer.id,
+              lobbyId: freshPlayer.lobbyId,
+              name: freshPlayer.name,
+              isHost: freshPlayer.isHost ?? false,
+              assignedWord: freshPlayer.assignedWord,
+              isImposter: freshPlayer.isImposter,
+              votes: Number(playerThatIsReconnectingVotes?.voteCount) ?? 0,
+            },
+            gameStatus: gameStatus ?? null,
+          },
+        });
+      } else {
+        broadCastToLobby(lobby.id, {
+          type: "playerReconnected",
+          msg: {
+            player: {
+              id: freshPlayer.id,
+              lobbyId: freshPlayer.lobbyId,
+              name: freshPlayer.name,
+              isHost: freshPlayer.isHost ?? false,
+              assignedWord: freshPlayer.assignedWord,
+              isImposter: freshPlayer.isImposter,
+              votes: 0,
+            },
+            gameStatus: gameStatus ?? null,
+          },
         });
       }
+
+      addSocketToLobby(lobby.id, ws);
+
+      //
+
+      ws.send(
+        JSON.stringify({
+          type: "reconnected",
+          msg: {
+            player: {
+              id: freshPlayer.id,
+              name: freshPlayer.name,
+              isHost: freshPlayer.isHost ?? false,
+              assignedWord: freshPlayer.assignedWord,
+              isImposter: freshPlayer.isImposter,
+            },
+            lobby: {
+              ...freshLobby,
+              wordPairId: freshLobby.wordPairId,
+            },
+            players: players.map((x) => ({
+              ...x,
+              assignedWord: x.assignedWord,
+              isHost: x.isHost ?? false,
+              votes: 0,
+            })),
+            gameStatus: gameStatus ?? null,
+          },
+        }),
+      );
+    } catch (err) {
+      console.log(err);
+      return; // there is no user data, so no need to reconnect, just move forward
     }
   }
 
-  socketToClient.set(ws, { clientId });
+  if (!socketToClient.get(ws)?.lobbyId) {
+    socketToClient.set(ws, { clientId });
+  }
 
   ws.on("error", (err) => {
     console.error("ws error", err);
@@ -292,11 +280,9 @@ wss.on("connection", (ws, req) => {
             removeSocketFromLobby(clientInfo.lobbyId, ws);
           } catch (err) {
             sendError(ws, "leaving lobby failed");
-            sessionStore.destroy(unsigned);
+
             break;
           }
-
-          sessionStore.destroy(unsigned); // erase sess
 
           broadCastToLobby(clientInfo.lobbyId, {
             type: "playerLeft",
@@ -542,7 +528,6 @@ wss.on("connection", (ws, req) => {
           console.error("disconnect timer failed:", err);
         } finally {
           disconnectTimers.delete(clientInfo.playerId!);
-          sessionStore.destroy(unsigned, () => {});
         }
       }, 180000);
       disconnectTimers.set(clientInfo.playerId, timer);

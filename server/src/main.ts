@@ -3,8 +3,6 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import http from "http";
-import session from "express-session";
-import pgSimple from "connect-pg-simple";
 
 import apiRouter from "./routes/index";
 import { requestLogger } from "./middlewares/requestLogger";
@@ -22,29 +20,6 @@ app.use(
 export const server = http.createServer(app);
 
 import "./ws/ws.server";
-
-const pgStore = pgSimple(session);
-
-export const sessionStore = new pgStore({
-  pool: pool,
-  tableName: "sessions",
-  ttl: 10800,
-});
-app.use(
-  session({
-    store: sessionStore,
-
-    secret: process.env.SESSION_SECRET!,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 3,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    },
-  }),
-);
 
 app.use(express.json());
 
