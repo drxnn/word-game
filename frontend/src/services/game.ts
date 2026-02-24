@@ -1,7 +1,7 @@
 import { GameOptions, JoinLobbyInput } from "shared-types";
 
-// const url = import.meta.env.VITE_API_URL + "/api/lobby" ;
-const url = "http://localhost:4000/api/lobby";
+const url = import.meta.env.VITE_API_URL + "/api/lobby";
+// const url = "http://localhost:4000/api/lobby";
 
 export async function createLobby({
   name,
@@ -14,7 +14,7 @@ export async function createLobby({
   try {
     const response = await fetch(`${url}/create`, {
       method: "POST",
-      credentials: "include",
+
       headers: {
         "Content-Type": "application/json",
       },
@@ -32,7 +32,7 @@ export async function joinLobby({ name, code }: JoinLobbyInput) {
   try {
     const response = await fetch(`${url}/join`, {
       method: "POST",
-      credentials: "include",
+
       body: JSON.stringify({ name, code }),
       headers: {
         "Content-Type": "application/json",
