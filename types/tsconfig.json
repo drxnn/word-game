@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "rootDir": "./",
+    "outDir": "./dist",
+    "module": "commonjs",
+    "target": "esnext",
+    "declaration": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["index.ts"]
+}
