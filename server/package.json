@@ -9,9 +9,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "start": "node dist/main.js",
     "build": "tsc -p .",
-    "db:init": "psql $DATABASE_URL -f src/db/migrations/001_init.sql",
-    "db:seed": "psql $DATABASE_URL -f src/db/migrations/002_seedData.sql",
-    "db:migrate": "npm run db:init && npm run db:seed"
+    "db:migrate": "node dist/db/migrate.js"
   },
   "keywords": [],
   "author": "",
