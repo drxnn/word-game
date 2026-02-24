@@ -15,7 +15,11 @@ CREATE INDEX IF NOT EXISTS sessions_expire_idx ON sessions (expire);
 
 
 
-CREATE TYPE game_status_enum AS enum ('IDLE','STARTED','VOTED', 'VOTING', 'GAME_OVER');
+DO $$ BEGIN
+  CREATE TYPE game_status_enum AS ENUM ('IDLE','STARTED','VOTED', 'VOTING', 'GAME_OVER');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 
 
