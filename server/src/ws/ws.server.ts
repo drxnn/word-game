@@ -52,11 +52,13 @@ wss.on("connection", (ws, req) => {
   const cookie = parseCookie(req.headers.cookie ?? "");
   let session: SessionData | null | undefined;
   let unsigned: string;
+  console.log(`cookie is :${cookie}`);
   if (cookie) {
     const rawCookie = cookie["connect.sid"];
     if (rawCookie) {
       const raw = decodeURIComponent(rawCookie);
       unsigned = unsign(raw.slice(2), process.env.SESSION_SECRET!) || ""; // empty string is falsy so this works
+      console.log(`unsigned  is :${unsigned}`);
 
       if (unsigned && typeof unsigned === "string") {
         sessionStore.get(unsigned, async (err, s) => {

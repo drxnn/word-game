@@ -13,6 +13,12 @@ import { pool } from "./db/index";
 
 export const app = express();
 app.set("trust proxy", 1);
+app.use(
+  cors({
+    credentials: true,
+    origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+  }),
+);
 export const server = http.createServer(app);
 
 import "./ws/ws.server";
@@ -32,19 +38,14 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 1000 * 60 * 60 * 3,
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     },
   }),
 );
-app.use(
-  cors({
-    credentials: true,
-    origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
-  }),
-);
+
 app.use(express.json());
 
 app.get("/ping", (req, res) => res.send("pong"));
