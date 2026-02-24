@@ -542,7 +542,7 @@ wss.on("connection", (ws, req) => {
           disconnectTimers.delete(clientInfo.playerId!);
           sessionStore.destroy(unsigned, () => {});
         }
-      }, 10000);
+      }, 180000);
       disconnectTimers.set(clientInfo.playerId, timer);
     }
     if (clientInfo?.lobbyId) {
