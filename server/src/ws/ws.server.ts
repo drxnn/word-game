@@ -19,7 +19,9 @@ import { SessionData } from "express-session";
 const wss = new WebSocketServer({
   server,
   verifyClient: ({ origin }: { origin?: string }) => {
-    const allowed = [process.env.FRONTEND_URL ?? "http://localhost:5173"];
+    const allowed = [
+      (process.env.FRONTEND_URL ?? "http://localhost:5173").toLowerCase(),
+    ];
     if (!allowed.includes(origin?.toLowerCase() ?? "")) {
       console.log(`Rejected unauthorized origin: ${origin}`);
       return false;
