@@ -41,7 +41,10 @@ export const PlayerSchema = z.object({
     .trim()
     .min(2, "name must be at least 2 characters")
     .max(20, "Name can't exceed 20 characters")
-    .regex(/^[a-zA-Z]+$/, "Name can only contain letters"),
+    .regex(
+      /^[a-zA-Z]+( [a-zA-Z]+)*$/,
+      "Name can only contain letters and single spaces",
+    ),
   lobbyId: z.uuid(),
   isImposter: z.boolean(),
   isHost: z.boolean(),
