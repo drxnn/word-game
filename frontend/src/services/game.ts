@@ -1,6 +1,6 @@
 import { GameOptions, JoinLobbyInput } from "shared-types";
 
-const url = "http://localhost:4000/api/lobby";
+const url = import.meta.env.VITE_API_URL + "/api/lobby";
 
 export async function createLobby({
   name,
