@@ -2,7 +2,7 @@
   "name": "codename",
   "private": true,
   "workspaces": [
-    "game-imposter",
+    "frontend",
     "server",
     "types"
   ]
