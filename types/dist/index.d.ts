@@ -39,6 +39,11 @@ type LobbyAction = {
         }[];
     };
 } | {
+    type: "HOST_REASSIGNED";
+    payload: {
+        playerId: string;
+    };
+} | {
     type: "PLAYER_INFO";
     payload: {
         assignedWord: string;
@@ -193,6 +198,10 @@ declare const ServerToClientMapSchema: z.ZodObject<{
             numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
         }, z.core.$strip>;
     }, z.core.$strip>;
+    hostReassigned: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        playerId: z.ZodOptional<z.ZodUUID>;
+    }, z.core.$strip>;
     reconnected: z.ZodObject<{
         player: z.ZodObject<{
             id: z.ZodUUID;
@@ -345,6 +354,12 @@ declare const ClientToServerMapSchema: z.ZodObject<{
 declare const ServerToClientSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"voteState">;
     msg: z.ZodUnion<readonly [z.ZodLiteral<"start">, z.ZodLiteral<"end">, z.ZodLiteral<"idle">]>;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodLiteral<"hostReassigned">;
+    msg: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        playerId: z.ZodOptional<z.ZodUUID>;
+    }, z.core.$strip>;
 }, z.core.$strip>, z.ZodObject<{
     type: z.ZodLiteral<"reconnected">;
     msg: z.ZodObject<{

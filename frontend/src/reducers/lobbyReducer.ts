@@ -27,6 +27,19 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
         ),
       };
     }
+    case "HOST_REASSIGNED": {
+      return {
+        ...state,
+        player:
+          state.player.id === action.payload.playerId
+            ? { ...state.player, isHost: true }
+            : { ...state.player, isHost: false },
+        players: state.players.map((pl) => ({
+          ...pl,
+          isHost: pl.id === action.payload.playerId,
+        })),
+      };
+    }
     case "PLAYER_LEFT": {
       return {
         ...state,

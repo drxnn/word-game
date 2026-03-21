@@ -4,10 +4,11 @@ import { enterPlayer } from "./players";
 
 export async function createLobby(code: string) {
   if (!code) throw new Error("Code is required");
-  await query(`BEGIN`);
+  const client = await connect();
+  await client.query(`BEGIN`);
 
   try {
-    const result = await query(
+    const result = await client.query(
       `
         INSERT INTO lobbies (code)
         VALUES ($1) RETURNING *
@@ -16,11 +17,11 @@ export async function createLobby(code: string) {
     );
     const lobby = result.rows[0];
 
-    await query(`INSERT INTO games (lobby_id) VALUES ($1)`, [lobby.id]);
-    await query(`COMMIT`);
+    await client.query(`INSERT INTO games (lobby_id) VALUES ($1)`, [lobby.id]);
+    await client.query(`COMMIT`);
     return lobby;
   } catch (err: any) {
-    await query(`ROLLBACK`);
+    await client.query(`ROLLBACK`);
     if (err.code === "23505") {
       throw new Error("Lobby code already exists");
     }

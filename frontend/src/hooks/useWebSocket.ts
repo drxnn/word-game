@@ -140,7 +140,6 @@ export function useWebSocket({
           break;
         }
         case "playerVotedOut": {
-          // someone got voted out
           const { playerId } = parsed.data.msg;
           if (playerId) {
             lobbyDispatch({ type: "PLAYER_VOTED_OUT", payload: { playerId } }); // 6
@@ -158,6 +157,18 @@ export function useWebSocket({
               type: "PLAYER_BACK_IN_LOBBY",
               payload: { playerId },
             }); // 7
+          break;
+        }
+        case "hostReassigned": {
+          const { playerId, name } = parsed.data.msg;
+          if (playerId && name) {
+            lobbyDispatch({ type: "HOST_REASSIGNED", payload: { playerId } });
+            setNotificationAlert({
+              type: "info",
+              message: `${name} is now the host`,
+            });
+          }
+
           break;
         }
         case "voteState": {

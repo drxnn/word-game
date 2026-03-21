@@ -161,6 +161,7 @@ var ServerToClientMapSchema = import_zod.z.object({
     isImposter: true,
     assignedWord: true
   }).extend({ options: gameOptionsSchema }),
+  hostReassigned: ClientInfoSchema.pick({ name: true, playerId: true }),
   reconnected: import_zod.z.object({
     player: PlayerSchema.pick({
       name: true,
@@ -247,6 +248,10 @@ var ServerToClientSchema = import_zod.z.discriminatedUnion("type", [
   import_zod.z.object({
     type: import_zod.z.literal("voteState"),
     msg: ClientToServerMapSchema.shape.voteState
+  }),
+  import_zod.z.object({
+    type: import_zod.z.literal("hostReassigned"),
+    msg: ServerToClientMapSchema.shape.hostReassigned
   }),
   import_zod.z.object({
     type: import_zod.z.literal("reconnected"),

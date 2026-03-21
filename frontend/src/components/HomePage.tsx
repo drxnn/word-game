@@ -99,7 +99,7 @@ export default function HomePage() {
 
       try {
         const result = await createLobby({ name: parseResult.data, options });
-        console.log(`result.lobby.id is ${result?.lobby.id}`);
+
         if (result) {
           lobbyDispatch({
             type: "SET_LOBBY",
@@ -156,7 +156,6 @@ export default function HomePage() {
 
   const handleStartGame = () => {
     if (lobby.lobby.id) {
-      console.log(`lobby.lobby.id is ${lobby.lobby.id}`);
       const messageToSend = {
         type: "startGame",
         msg: {

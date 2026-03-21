@@ -289,3 +289,20 @@ export async function assignWordsToPlayers(lobbyId: string) {
 
   return result.rows;
 }
+
+export async function reassignHost(lobbyId: string): Promise<Player | null> {
+  const result = await query(
+    `UPDATE players
+     SET is_host = true
+     WHERE id = (
+       SELECT id FROM players
+       WHERE lobby_id = $1
+       ORDER BY created_at ASC
+       LIMIT 1
+     )
+     AND lobby_id = $1
+     RETURNING *`,
+    [lobbyId],
+  );
+  return result.rows[0] ?? null;
+}

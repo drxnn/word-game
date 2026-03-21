@@ -18,6 +18,7 @@ export type LobbyAction =
       type: "VOTES_COUNTED";
       payload: { votes: { id: string; voteCount: number }[] };
     }
+  | { type: "HOST_REASSIGNED"; payload: { playerId: string } }
   | {
       type: "PLAYER_INFO";
       payload: { assignedWord: string; isImposter: boolean };
@@ -172,12 +173,14 @@ export const ServerToClientMapSchema = z.object({
     }),
     gameStatus: z.enum(GameStatus),
   }),
+
   playerInfo: PlayerSchema.pick({
     name: true,
     isHost: true,
     isImposter: true,
     assignedWord: true,
   }).extend({ options: gameOptionsSchema }),
+  hostReassigned: ClientInfoSchema.pick({ name: true, playerId: true }),
   reconnected: z.object({
     player: PlayerSchema.pick({
       name: true,
@@ -279,6 +282,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("voteState"),
     msg: ClientToServerMapSchema.shape.voteState,
+  }),
+  z.object({
+    type: z.literal("hostReassigned"),
+    msg: ServerToClientMapSchema.shape.hostReassigned,
   }),
   z.object({
     type: z.literal("reconnected"),

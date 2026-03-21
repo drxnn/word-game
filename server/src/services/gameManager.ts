@@ -120,6 +120,10 @@ class _GameManager {
   async startGame(lobbyId: string, options?: GameOptions) {
     //
     if (!lobbyId) throw new Error("Lobby id is required");
+    const currentStatus = await lobbiesModel.getGameStatus(lobbyId);
+    if (currentStatus === GameStatus.started) {
+      throw new Error("Game is already in progress");
+    }
     await lobbiesModel.resetLobbyVotingRound(lobbyId);
     await lobbiesModel.clearVotes(lobbyId);
     const imposterKnows = options?.imposterKnows ?? false;
@@ -179,7 +183,7 @@ class _GameManager {
       throw new Error("Lobby not found or already deleted");
     }
 
-    return result.rows[0];
+    return result;
   }
 
   async incrementVotingRound(lobbyId: string) {
@@ -236,6 +240,11 @@ class _GameManager {
     if (!lobbyId)
       throw new Error("Cannot set lobby_status, lobby ID not defined");
     await lobbiesModel.changeGameStatus(lobbyId, status);
+  }
+
+  async reassignHost(lobbyId: string) {
+    const newHost = await playersModel.reassignHost(lobbyId);
+    return newHost;
   }
 }
 

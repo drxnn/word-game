@@ -66,9 +66,9 @@ export default function Lobby({
               </h3>
 
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {lobby.players.map((pl, index) => (
+                {lobby.players.map((pl) => (
                   <div
-                    key={index}
+                    key={pl.id}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                       player.id === pl.id
                         ? "bg-indigo-100 border-2 border-indigo-400"
