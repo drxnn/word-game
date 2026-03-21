@@ -138,20 +138,6 @@ wss.on("connection", async (ws, req) => {
             return;
           }
           try {
-            const remainingCount = await GameManager.playersLeftInGame(
-              clientInfo.lobbyId,
-            );
-            if (remainingCount > 0) {
-              const newHost = await GameManager.reassignHost(
-                clientInfo.lobbyId,
-              );
-              if (newHost) {
-                broadCastToLobby(clientInfo.lobbyId, {
-                  type: "hostReassigned",
-                  msg: { playerId: newHost.id, name: newHost.name },
-                });
-              }
-            }
             let gameStatus = await GameManager.getGameStatus(
               clientInfo.lobbyId,
             );
@@ -162,10 +148,27 @@ wss.on("connection", async (ws, req) => {
                 clientInfo.playerId,
               );
             }
-            await GameManager.leaveLobby({
+
+            const playerToLeave = await GameManager.leaveLobby({
               code: clientInfo.code,
               playerId: clientInfo.playerId,
             });
+            if (playerToLeave.isHost) {
+              const remainingCount = await GameManager.countLobbyPlayers(
+                clientInfo.lobbyId,
+              );
+              if (remainingCount > 0) {
+                const newHost = await GameManager.reassignHost(
+                  clientInfo.lobbyId,
+                );
+                if (newHost) {
+                  broadCastToLobby(clientInfo.lobbyId, {
+                    type: "hostReassigned",
+                    msg: { playerId: newHost.id, name: newHost.name },
+                  });
+                }
+              }
+            }
             removeSocketFromLobby(clientInfo.lobbyId, ws);
           } catch (err) {
             sendError(ws, "leaving lobby failed");
@@ -228,7 +231,6 @@ wss.on("connection", async (ws, req) => {
 
             await GameManager.playersLeftInGame(lobbyId);
 
-            console.table(results);
             const top = results[0];
             const second = results[1];
             const hasMajority =
@@ -240,45 +242,52 @@ wss.on("connection", async (ws, req) => {
                 top.id,
               );
 
-              const numOfPlayersLeft =
-                await GameManager.playersLeftInGame(lobbyId);
               if (top.isImposter) {
-                await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
-                broadCastToLobby(lobbyId, {
-                  type: "gameOver",
-                  msg: {
-                    lastPlayerToBeVotedOutId: top.id,
-                    lobbyId,
-                    winner: "allies",
-                    name: playerVotedOut.name,
-                    gameStatus: GameStatus.gameOver,
-                  },
-                });
-                await GameManager.resetLobbyVotingRound(lobbyId);
-                break;
-              } else {
-                if (numOfPlayersLeft < 3) {
+                const remainingImposters =
+                  await GameManager.getRemainingImposters(lobbyId);
+
+                if (remainingImposters === 0) {
                   await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
                   broadCastToLobby(lobbyId, {
                     type: "gameOver",
                     msg: {
                       lastPlayerToBeVotedOutId: top.id,
                       lobbyId,
-                      winner: "imposter",
+                      winner: "allies",
                       name: playerVotedOut.name,
                       gameStatus: GameStatus.gameOver,
                     },
                   });
                   await GameManager.resetLobbyVotingRound(lobbyId);
-                  break;
                 } else {
-                  await GameManager.setGameStatus(lobbyId, GameStatus.idle);
-                  await GameManager.incrementVotingRound(lobbyId);
-                  broadCastToLobby(lobbyId, {
-                    type: "playerVotedOut",
-                    msg: { playerId: top.id, isImposter: top.isImposter },
-                  });
-                  break;
+                  const numOfPlayersLeft =
+                    await GameManager.playersLeftInGame(lobbyId);
+                  if (numOfPlayersLeft < 3) {
+                    await GameManager.setGameStatus(
+                      lobbyId,
+                      GameStatus.gameOver,
+                    );
+                    broadCastToLobby(lobbyId, {
+                      type: "gameOver",
+                      msg: {
+                        lastPlayerToBeVotedOutId: top.id,
+                        lobbyId,
+                        winner: "imposter",
+                        name: playerVotedOut.name,
+                        gameStatus: GameStatus.gameOver,
+                      },
+                    });
+                    await GameManager.resetLobbyVotingRound(lobbyId);
+                    break;
+                  } else {
+                    await GameManager.setGameStatus(lobbyId, GameStatus.idle);
+                    await GameManager.incrementVotingRound(lobbyId);
+                    broadCastToLobby(lobbyId, {
+                      type: "playerVotedOut",
+                      msg: { playerId: top.id, isImposter: top.isImposter },
+                    });
+                    break;
+                  }
                 }
               }
             } else {
@@ -420,10 +429,26 @@ wss.on("connection", async (ws, req) => {
               type: "playerLeft",
               msg: { playerId: clientInfo.playerId, name: clientInfo.name },
             });
-            await GameManager.leaveLobby({
+            const playerToLeave = await GameManager.leaveLobby({
               code: clientInfo.code!,
               playerId: clientInfo.playerId!,
             });
+            if (playerToLeave.isHost) {
+              const remainingCount = await GameManager.playersLeftInGame(
+                clientInfo.lobbyId,
+              );
+              if (remainingCount > 0) {
+                const newHost = await GameManager.reassignHost(
+                  clientInfo.lobbyId,
+                );
+                if (newHost) {
+                  broadCastToLobby(clientInfo.lobbyId, {
+                    type: "hostReassigned",
+                    msg: { playerId: newHost.id, name: newHost.name },
+                  });
+                }
+              }
+            }
           }
         } catch (err) {
           console.error("disconnect timer failed:", err);
@@ -510,22 +535,7 @@ wss.on("connection", async (ws, req) => {
               assignedWord: freshPlayer.assignedWord,
               isImposter: freshPlayer.isImposter,
               votes: Number(playerThatIsReconnectingVotes?.voteCount || 0),
-            },
-            gameStatus: gameStatus ?? null,
-          },
-        });
-      } else {
-        broadCastToLobby(lobby.id, {
-          type: "playerReconnected",
-          msg: {
-            player: {
-              id: freshPlayer.id,
-              lobbyId: freshPlayer.lobbyId,
-              name: freshPlayer.name,
-              isHost: freshPlayer.isHost ?? false,
-              assignedWord: freshPlayer.assignedWord,
-              isImposter: freshPlayer.isImposter,
-              votes: Number(playerThatIsReconnectingVotes?.voteCount || 0),
+              votedOut: freshPlayer.votedOut ?? false,
             },
             gameStatus: gameStatus ?? null,
           },
@@ -546,6 +556,8 @@ wss.on("connection", async (ws, req) => {
               isHost: freshPlayer.isHost ?? false,
               assignedWord: freshPlayer.assignedWord,
               isImposter: freshPlayer.isImposter,
+              votes: freshPlayer.votes ?? 0,
+              votedOut: freshPlayer.votedOut,
             },
             lobby: {
               ...freshLobby,
@@ -555,7 +567,8 @@ wss.on("connection", async (ws, req) => {
               ...x,
               assignedWord: x.assignedWord,
               isHost: x.isHost ?? false,
-              votes: 0,
+              votes: x.votes ?? 0,
+              votedOut: x.votedOut ?? false,
             })),
             gameStatus: gameStatus ?? null,
           },

@@ -184,7 +184,7 @@ export function useWebSocket({
           });
           setVoted(false);
           setVoteState("idle");
-          setGameStatus(GameStatus.started);
+          setGameStatus(GameStatus.idle);
           break;
         }
         case "gameOver": {
@@ -218,16 +218,19 @@ export function useWebSocket({
           lobbyDispatch({
             type: "SET_LOBBY",
             payload: {
-              player: { ...player, votes: 0, lobbyId: lobby.id },
+              player: { ...player, lobbyId: lobby.id },
               players: players.map((x) => ({
                 ...x,
                 playerLeft: false,
                 inLobby: true,
-                votedOut: false,
+                votedOut: x.votedOut ?? false,
               })),
               lobby,
             },
           });
+          if (gameStatus === GameStatus.voting) {
+            setVoteState("start");
+          }
           setGameStatus(gameStatus ?? GameStatus.idle);
           if (
             gameStatus !== GameStatus.idle &&

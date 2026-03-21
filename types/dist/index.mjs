@@ -108,7 +108,7 @@ var ServerToClientMapSchema = z.object({
       isHost: true,
       lobbyId: true,
       votes: true
-    }),
+    }).extend({ votedOut: z.boolean() }),
     gameStatus: z.enum(GameStatus)
   }),
   playerInfo: PlayerSchema.pick({
@@ -124,10 +124,11 @@ var ServerToClientMapSchema = z.object({
       id: true,
       assignedWord: true,
       isImposter: true,
-      isHost: true
-    }),
+      isHost: true,
+      votes: true
+    }).extend({ votedOut: z.boolean() }),
     lobby: LobbySchema,
-    players: PlayerSchema.array(),
+    players: PlayerSchema.extend({ votedOut: z.boolean() }).array(),
     gameStatus: z.enum(GameStatus).nullable()
   }),
   lobbyCreated: z.object({ lobbyId: z.uuid() }),

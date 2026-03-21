@@ -27,6 +27,8 @@ export async function createLobby(code: string) {
     }
 
     throw err;
+  } finally {
+    client.release();
   }
 }
 

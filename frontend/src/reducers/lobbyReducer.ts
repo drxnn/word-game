@@ -22,7 +22,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
         ...state,
         players: state.players.map((pl) =>
           pl.id === action.payload.id
-            ? { ...pl, inLobby: true, playerLeft: false, votedOut: false }
+            ? { ...pl, inLobby: true, playerLeft: false }
             : pl,
         ),
       };

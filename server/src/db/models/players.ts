@@ -306,3 +306,13 @@ export async function reassignHost(lobbyId: string): Promise<Player | null> {
   );
   return result.rows[0] ?? null;
 }
+
+// In server/src/db/models/players.ts:
+export async function getRemainingImposters(lobbyId: string): Promise<number> {
+  const result = await query(
+    `SELECT COUNT(*) as count FROM players
+     WHERE lobby_id = $1 AND is_imposter = true AND voted_out IS NOT TRUE`,
+    [lobbyId],
+  );
+  return parseInt(result.rows[0].count, 10);
+}

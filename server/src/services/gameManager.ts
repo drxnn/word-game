@@ -246,6 +246,12 @@ class _GameManager {
     const newHost = await playersModel.reassignHost(lobbyId);
     return newHost;
   }
+  async countLobbyPlayers(lobbyId: string) {
+    return lobbiesModel.countLobbyPlayers(lobbyId);
+  }
+  async getRemainingImposters(lobbyId: string) {
+    return playersModel.getRemainingImposters(lobbyId);
+  }
 }
 
 export const GameManager = new _GameManager();

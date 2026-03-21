@@ -184,6 +184,7 @@ declare const ServerToClientMapSchema: z.ZodObject<{
             isHost: z.ZodBoolean;
             assignedWord: z.ZodNullable<z.ZodString>;
             votes: z.ZodNumber;
+            votedOut: z.ZodBoolean;
         }, z.core.$strip>;
         gameStatus: z.ZodEnum<typeof GameStatus>;
     }, z.core.$strip>;
@@ -209,6 +210,8 @@ declare const ServerToClientMapSchema: z.ZodObject<{
             isImposter: z.ZodBoolean;
             isHost: z.ZodBoolean;
             assignedWord: z.ZodNullable<z.ZodString>;
+            votes: z.ZodNumber;
+            votedOut: z.ZodBoolean;
         }, z.core.$strip>;
         lobby: z.ZodObject<{
             id: z.ZodUUID;
@@ -228,6 +231,7 @@ declare const ServerToClientMapSchema: z.ZodObject<{
             isHost: z.ZodBoolean;
             assignedWord: z.ZodNullable<z.ZodString>;
             votes: z.ZodNumber;
+            votedOut: z.ZodBoolean;
         }, z.core.$strip>>;
         gameStatus: z.ZodNullable<z.ZodEnum<typeof GameStatus>>;
     }, z.core.$strip>;
@@ -369,6 +373,8 @@ declare const ServerToClientSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
             isImposter: z.ZodBoolean;
             isHost: z.ZodBoolean;
             assignedWord: z.ZodNullable<z.ZodString>;
+            votes: z.ZodNumber;
+            votedOut: z.ZodBoolean;
         }, z.core.$strip>;
         lobby: z.ZodObject<{
             id: z.ZodUUID;
@@ -388,6 +394,7 @@ declare const ServerToClientSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
             isHost: z.ZodBoolean;
             assignedWord: z.ZodNullable<z.ZodString>;
             votes: z.ZodNumber;
+            votedOut: z.ZodBoolean;
         }, z.core.$strip>>;
         gameStatus: z.ZodNullable<z.ZodEnum<typeof GameStatus>>;
     }, z.core.$strip>;
@@ -402,6 +409,7 @@ declare const ServerToClientSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
             isHost: z.ZodBoolean;
             assignedWord: z.ZodNullable<z.ZodString>;
             votes: z.ZodNumber;
+            votedOut: z.ZodBoolean;
         }, z.core.$strip>;
         gameStatus: z.ZodEnum<typeof GameStatus>;
     }, z.core.$strip>;

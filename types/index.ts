@@ -170,7 +170,7 @@ export const ServerToClientMapSchema = z.object({
       isHost: true,
       lobbyId: true,
       votes: true,
-    }),
+    }).extend({ votedOut: z.boolean() }),
     gameStatus: z.enum(GameStatus),
   }),
 
@@ -188,9 +188,11 @@ export const ServerToClientMapSchema = z.object({
       assignedWord: true,
       isImposter: true,
       isHost: true,
-    }),
+      votes: true,
+    }).extend({ votedOut: z.boolean() }),
+
     lobby: LobbySchema,
-    players: PlayerSchema.array(),
+    players: PlayerSchema.extend({ votedOut: z.boolean() }).array(),
     gameStatus: z.enum(GameStatus).nullable(),
   }),
   lobbyCreated: z.object({ lobbyId: z.uuid() }),

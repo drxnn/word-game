@@ -152,7 +152,7 @@ var ServerToClientMapSchema = import_zod.z.object({
       isHost: true,
       lobbyId: true,
       votes: true
-    }),
+    }).extend({ votedOut: import_zod.z.boolean() }),
     gameStatus: import_zod.z.enum(GameStatus)
   }),
   playerInfo: PlayerSchema.pick({
@@ -168,10 +168,11 @@ var ServerToClientMapSchema = import_zod.z.object({
       id: true,
       assignedWord: true,
       isImposter: true,
-      isHost: true
-    }),
+      isHost: true,
+      votes: true
+    }).extend({ votedOut: import_zod.z.boolean() }),
     lobby: LobbySchema,
-    players: PlayerSchema.array(),
+    players: PlayerSchema.extend({ votedOut: import_zod.z.boolean() }).array(),
     gameStatus: import_zod.z.enum(GameStatus).nullable()
   }),
   lobbyCreated: import_zod.z.object({ lobbyId: import_zod.z.uuid() }),
