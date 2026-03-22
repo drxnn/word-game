@@ -153,6 +153,7 @@ wss.on("connection", async (ws, req) => {
               code: clientInfo.code,
               playerId: clientInfo.playerId,
             });
+            removeSocketFromLobby(clientInfo.lobbyId, ws);
             if (playerToLeave.isHost) {
               const remainingCount = await GameManager.countLobbyPlayers(
                 clientInfo.lobbyId,
@@ -169,7 +170,6 @@ wss.on("connection", async (ws, req) => {
                 }
               }
             }
-            removeSocketFromLobby(clientInfo.lobbyId, ws);
           } catch (err) {
             sendError(ws, "leaving lobby failed");
 

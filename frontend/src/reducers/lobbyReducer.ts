@@ -18,6 +18,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "PLAYER_RECONNECTED": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.map((pl) =>
@@ -28,6 +29,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "HOST_REASSIGNED": {
+      if (!state.player || !state.players) return state;
       return {
         ...state,
         player:
@@ -41,6 +43,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "PLAYER_LEFT": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.filter(
@@ -49,6 +52,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "PLAYER_VOTED": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.map((pl) => {
@@ -82,6 +86,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "PLAYER_INFO": {
+      if (!state.players || !state.player) return state;
       return {
         ...state,
         lobby: { ...state.lobby, gameStarted: true },
@@ -89,11 +94,19 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
           ...state.player,
           assignedWord: action.payload.assignedWord,
           isImposter: action.payload.isImposter,
+          votes: 0,
+          votedOut: false,
         },
-        players: state.players.map((x) => ({ ...x, inLobby: false })),
+        players: state.players.map((x) => ({
+          ...x,
+          inLobby: false,
+          votes: 0,
+          votedOut: false,
+        })),
       };
     }
     case "GAME_OVER": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.map((x) => {
@@ -106,6 +119,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "PLAYER_BACK_IN_LOBBY": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.map((x) =>
@@ -114,6 +128,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "PLAYER_VOTED_OUT": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.map((x) => {
@@ -129,6 +144,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       return { ...action.payload };
     }
     case "VOTES_COUNTED": {
+      if (!state.players) return state;
       return {
         ...state,
         players: state.players.map((x) => {

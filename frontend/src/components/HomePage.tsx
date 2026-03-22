@@ -150,6 +150,7 @@ export default function HomePage() {
     setVoted(false);
     setVoteState("idle");
     setInGame(false);
+    setGameStatus(GameStatus.idle);
     setWinner(null);
     localStorage.removeItem("token");
   };

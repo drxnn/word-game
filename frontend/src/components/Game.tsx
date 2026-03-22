@@ -163,14 +163,16 @@ export default function Game({
               })}
             </div>
           </div>
-          {isHost && gameStatusState.gameStatus === GameStatus.started && (
-            <Button
-              onClick={onReadyToVote}
-              className="w-full mt-4 py-6 text-base hover:cursor-pointer font-semibold border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-200 transform transition-all hover:scale-105 active:scale-95"
-            >
-              Ready to Vote
-            </Button>
-          )}
+          {isHost &&
+            (gameStatusState.gameStatus === GameStatus.started ||
+              gameStatusState.gameStatus === GameStatus.idle) && (
+              <Button
+                onClick={onReadyToVote}
+                className="w-full mt-4 py-6 text-base hover:cursor-pointer font-semibold border-2 border-indigo-300 text-indigo-700 hover:bg-indigo-200 transform transition-all hover:scale-105 active:scale-95"
+              >
+                Ready to Vote
+              </Button>
+            )}
         </Card>
 
         {gameStatusState.gameStatus === GameStatus.gameOver && (
