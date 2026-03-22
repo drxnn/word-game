@@ -120,10 +120,7 @@ class _GameManager {
   async startGame(lobbyId: string, options?: GameOptions) {
     //
     if (!lobbyId) throw new Error("Lobby id is required");
-    const currentStatus = await lobbiesModel.getGameStatus(lobbyId);
-    if (currentStatus === GameStatus.started) {
-      throw new Error("Game is already in progress");
-    }
+
     await lobbiesModel.resetLobbyVotingRound(lobbyId);
     await lobbiesModel.clearVotes(lobbyId);
     const imposterKnows = options?.imposterKnows ?? false;

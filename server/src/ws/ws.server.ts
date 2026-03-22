@@ -62,6 +62,7 @@ wss.on("connection", async (ws, req) => {
 
     const parsed = ClientToServerSchema.safeParse(raw.value);
     if (!parsed.success) {
+      sendError(ws, "invalid_message_format");
       return;
     }
 
@@ -241,6 +242,8 @@ wss.on("connection", async (ws, req) => {
                 lobbyId,
                 top.id,
               );
+              const numOfPlayersLeft =
+                await GameManager.playersLeftInGame(lobbyId);
 
               if (top.isImposter) {
                 const remainingImposters =
@@ -260,8 +263,6 @@ wss.on("connection", async (ws, req) => {
                   });
                   await GameManager.resetLobbyVotingRound(lobbyId);
                 } else {
-                  const numOfPlayersLeft =
-                    await GameManager.playersLeftInGame(lobbyId);
                   if (numOfPlayersLeft < 3) {
                     await GameManager.setGameStatus(
                       lobbyId,
@@ -288,6 +289,28 @@ wss.on("connection", async (ws, req) => {
                     });
                     break;
                   }
+                }
+              } else {
+                if (numOfPlayersLeft < 3) {
+                  await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
+                  broadCastToLobby(lobbyId, {
+                    type: "gameOver",
+                    msg: {
+                      lastPlayerToBeVotedOutId: top.id,
+                      lobbyId,
+                      winner: "imposter",
+                      name: playerVotedOut.name,
+                      gameStatus: GameStatus.gameOver,
+                    },
+                  });
+                  await GameManager.resetLobbyVotingRound(lobbyId);
+                } else {
+                  await GameManager.setGameStatus(lobbyId, GameStatus.idle);
+                  await GameManager.incrementVotingRound(lobbyId);
+                  broadCastToLobby(lobbyId, {
+                    type: "playerVotedOut",
+                    msg: { playerId: top.id, isImposter: false },
+                  });
                 }
               }
             } else {
@@ -390,9 +413,8 @@ wss.on("connection", async (ws, req) => {
             sendError(ws, "missing_lobbyId_for_create");
             break;
           }
-          let set: Set<WebSocket> = new Set();
-          set.add(ws);
-          lobbyToSockets.set(clientInfo.lobbyId, set);
+          addSocketToLobby(clientInfo.lobbyId, ws);
+
           break;
         }
 
