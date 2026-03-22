@@ -456,7 +456,7 @@ wss.on("connection", async (ws, req) => {
               playerId: clientInfo.playerId!,
             });
             if (playerToLeave.isHost) {
-              const remainingCount = await GameManager.playersLeftInGame(
+              const remainingCount = await GameManager.countLobbyPlayers(
                 clientInfo.lobbyId,
               );
               if (remainingCount > 0) {
@@ -536,6 +536,11 @@ wss.on("connection", async (ws, req) => {
         lobby.id,
         player.id,
       );
+
+      for (const [key, value] of Object.entries(freshPlayer)) {
+        console.log(`${key}:${value}`);
+      }
+
       const freshLobby = await GameManager.getLobby(lobby.id);
       const players = await GameManager.getAllPlayers(lobby.id);
 

@@ -71,6 +71,8 @@ export function useWebSocket({
 
       const parsed = ServerToClientSchema.safeParse(message);
       if (!parsed.success) {
+        console.error(" message validation failed:", parsed.error.issues);
+        console.error("Raw message:", JSON.stringify(message, null, 2));
         return;
       }
 
@@ -92,6 +94,9 @@ export function useWebSocket({
             },
           });
           setInGame(true);
+          setVoted(false);
+          setVoteState("idle");
+          setVotesCounted(false);
           setGameStatus(GameStatus.started);
           setOptions((p) => ({
             ...p,
@@ -197,6 +202,8 @@ export function useWebSocket({
             payload: { lastPlayerToBeVotedOutId },
           }); // 8
           setGameStatus(GameStatus.gameOver);
+          setVoted(false);
+          setVoteState("idle");
 
           if (winner === "allies") {
             setNotificationAlert({

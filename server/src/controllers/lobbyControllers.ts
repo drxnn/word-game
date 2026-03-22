@@ -101,7 +101,7 @@ export async function deleteLobby(
   next: NextFunction,
 ) {
   const { id } = req.body;
-  const parsed = deleteLobbySchema.safeParse(id);
+  const parsed = deleteLobbySchema.safeParse({ id });
 
   if (!parsed.success) {
     const prettyError = z.prettifyError(parsed.error);
@@ -110,7 +110,7 @@ export async function deleteLobby(
   try {
     let lobby = await GameManager.deleteLobby(parsed.data.id);
 
-    return res.status(204).send({ lobby });
+    return res.status(200).send({ lobby });
   } catch (err) {
     next(err);
   }

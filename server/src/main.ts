@@ -7,7 +7,8 @@ import http from "http";
 import apiRouter from "./routes/index";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler } from "./middlewares/errorHandler";
-import { pool } from "./db/index";
+
+import rateLimit from "express-rate-limit";
 
 export const app = express();
 app.set("trust proxy", 1);
@@ -26,6 +27,15 @@ app.use(express.json());
 app.get("/ping", (req, res) => res.send("pong"));
 app.use(requestLogger);
 
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later" },
+});
+
+app.use("/api", limiter);
 app.use("/api", apiRouter);
 
 app.use((request, response) => {

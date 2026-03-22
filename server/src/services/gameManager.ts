@@ -79,15 +79,15 @@ class _GameManager {
   }
 
   async leaveLobby({ code, playerId }: LeaveLobbySchema) {
-    const { id } = await lobbiesModel.getLobbyByCode(code);
-    const lobby = await lobbiesModel.getLobbyById(id);
-    if (!lobby) throw new Error("Lobby not found");
-    const player = await playersModel.exitPlayer(playerId, id);
+    const lobby = await lobbiesModel.getLobbyByCode(code);
 
-    const playerCount = await lobbiesModel.countLobbyPlayers(id);
+    if (!lobby) throw new Error("Lobby not found");
+    const player = await playersModel.exitPlayer(playerId, lobby.id);
+
+    const playerCount = await lobbiesModel.countLobbyPlayers(lobby.id);
     if (playerCount === 0) {
       try {
-        await lobbiesModel.deleteLobby(id);
+        await lobbiesModel.deleteLobby(lobby.id);
       } catch (err) {
         console.error("Failed to delete empty lobby:", err);
       }
@@ -122,7 +122,7 @@ class _GameManager {
     if (!lobbyId) throw new Error("Lobby id is required");
 
     await lobbiesModel.resetLobbyVotingRound(lobbyId);
-    await lobbiesModel.clearVotes(lobbyId);
+
     const imposterKnows = options?.imposterKnows ?? false;
     const numOfImposters = options?.numOfImposters ?? 1;
     const imposterHint = options?.imposterHint ?? false;
@@ -176,7 +176,7 @@ class _GameManager {
 
   async deleteLobby(lobbyId: string) {
     const result = await lobbiesModel.deleteLobby(lobbyId);
-    if (!result.rows || result.rows.length === 0) {
+    if (!result) {
       throw new Error("Lobby not found or already deleted");
     }
 

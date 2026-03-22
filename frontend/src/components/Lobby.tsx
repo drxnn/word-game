@@ -44,7 +44,6 @@ export default function Lobby({
 
         <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
           <div className="space-y-6">
-            {/* Lobby Code Display */}
             <div className="text-center pb-4 border-b border-indigo-100">
               <p className="text-sm text-slate-500 mb-2">Lobby Code</p>
               <div className="inline-flex items-center gap-2 bg-indigo-50 px-6 py-3 rounded-lg">
@@ -98,7 +97,6 @@ export default function Lobby({
               </div>
             </div>
 
-            {/* Start Game Button */}
             <div className="pt-4">
               {player.isHost && (
                 <Button
@@ -119,7 +117,6 @@ export default function Lobby({
               )}
             </div>
 
-            {/* Game Options Dialog — host only */}
             <div>
               {player.isHost && (
                 <Dialog>
@@ -141,7 +138,6 @@ export default function Lobby({
                     </DialogHeader>
 
                     <div className="space-y-5 pt-1">
-                      {/* Imposter Hint Toggle */}
                       <div className="flex items-center justify-between gap-4 bg-violet-50 rounded-lg px-4 py-3 border border-violet-100">
                         <div>
                           <Label

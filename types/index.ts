@@ -103,7 +103,7 @@ export const ClientInfoSchema = z.object({
 
 export type ClientInfo = z.infer<typeof ClientInfoSchema>;
 export const createLobbySchema = z.object({
-  name: z.string().trim().min(2).max(20),
+  name: PlayerSchema.shape.name,
   options: gameOptionsSchema,
 });
 

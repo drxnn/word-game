@@ -24,9 +24,9 @@ export async function createLobby(code: string) {
     await client.query(`ROLLBACK`);
     if (err.code === "23505") {
       throw new Error("Lobby code already exists");
+    } else {
+      throw new Error("Something went wrong when creating Lobby");
     }
-
-    throw err;
   } finally {
     client.release();
   }
