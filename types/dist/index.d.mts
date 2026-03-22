@@ -330,6 +330,9 @@ declare const ClientToServerMapSchema: z.ZodObject<{
         name: z.ZodString;
         code: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>;
+    auth: z.ZodObject<{
+        token: z.ZodString;
+    }, z.core.$strip>;
     leaveLobby: z.ZodObject<{
         lobbyId: z.ZodUUID;
         playerId: z.ZodUUID;
@@ -564,6 +567,11 @@ declare const ClientToServerSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"playerBackInLobby">;
     msg: z.ZodObject<{
         playerId: z.ZodOptional<z.ZodUUID>;
+    }, z.core.$strip>;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodLiteral<"auth">;
+    msg: z.ZodObject<{
+        token: z.ZodString;
     }, z.core.$strip>;
 }, z.core.$strip>, z.ZodObject<{
     type: z.ZodLiteral<"createLobby">;

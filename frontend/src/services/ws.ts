@@ -5,14 +5,22 @@ export let socket: WebSocket | null = null;
 
 export const startWsConnection = (wsUri = WS_URL) => {
   const token = localStorage.getItem("token");
-  socket = new WebSocket(token ? `${wsUri}?token=${token}` : wsUri);
+  socket = new WebSocket(wsUri);
 
   socket.addEventListener("open", () => {
     console.log("connected to websocket");
+    if (token) {
+      socket?.send(
+        JSON.stringify({
+          type: "auth",
+          msg: { token: token },
+        }),
+      );
+    }
   });
 
   socket.addEventListener("error", (event) => {
-    console.log("WebSocket error: ", event);
+    console.error("WebSocket error: ", event);
   });
 
   socket.addEventListener("close", () => {

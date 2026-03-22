@@ -21,6 +21,7 @@ import {
 } from "./wsHelpers";
 
 import jwt from "jsonwebtoken";
+import { castVoteAtomic } from "../db/models/lobbies";
 
 const wss = new WebSocketServer({
   server,
@@ -39,9 +40,6 @@ const wss = new WebSocketServer({
 const disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 wss.on("connection", async (ws, req) => {
   const clientId = crypto.randomUUID();
-
-  const url = new URL(req.url!, `wss://${req.headers.host}`);
-  const token = url.searchParams.get("token");
 
   let isAlive = true;
 
@@ -70,6 +68,117 @@ wss.on("connection", async (ws, req) => {
 
     try {
       switch (parsed.data.type) {
+        case "auth": {
+          let token = parsed.data.msg.token;
+          if (token) {
+            try {
+              const payload = jwt.verify(token, process.env.JWT_SECRET!) as {
+                player: Player;
+                lobby: Lobby;
+              };
+              const { player, lobby } = payload;
+
+              const isActive = await GameManager.isLobbyActive(lobby.id);
+              if (!isActive) {
+                return;
+              }
+
+              const existing = disconnectTimers.get(player.id);
+              if (existing) {
+                clearTimeout(existing);
+                disconnectTimers.delete(player.id);
+              }
+
+              addToClientInfo(
+                ws,
+                {
+                  playerId: player.id,
+                  lobbyId: lobby.id,
+                  name: player.name,
+                  code: lobby.code,
+                  clientId,
+                },
+                clientId,
+              );
+
+              const freshPlayer = await GameManager.getPlayerInLobby(
+                lobby.id,
+                player.id,
+              );
+
+              const freshLobby = await GameManager.getLobby(lobby.id);
+              const players = await GameManager.getAllPlayers(lobby.id);
+
+              let gameStatus = await GameManager.getGameStatus(freshLobby.id);
+              const votes = await GameManager.countVotes(freshLobby.id);
+              const playerThatIsReconnectingVotes = votes.find(
+                (x) => x.id === freshPlayer.id,
+              );
+
+              if (
+                gameStatus === GameStatus.voting ||
+                gameStatus === GameStatus.voted
+              ) {
+                broadCastToLobby(lobby.id, {
+                  type: "playerReconnected",
+                  msg: {
+                    player: {
+                      id: freshPlayer.id,
+                      lobbyId: freshPlayer.lobbyId,
+                      name: freshPlayer.name,
+                      isHost: freshPlayer.isHost ?? false,
+                      assignedWord: null,
+                      isImposter: false,
+                      votes: Number(
+                        playerThatIsReconnectingVotes?.voteCount || 0,
+                      ),
+                      votedOut: freshPlayer.votedOut ?? false,
+                    },
+                    gameStatus: gameStatus ?? null,
+                  },
+                });
+              }
+
+              addSocketToLobby(lobby.id, ws);
+
+              //
+
+              ws.send(
+                JSON.stringify({
+                  type: "reconnected",
+                  msg: {
+                    player: {
+                      id: freshPlayer.id,
+                      name: freshPlayer.name,
+                      isHost: freshPlayer.isHost ?? false,
+                      assignedWord: freshPlayer.assignedWord,
+                      isImposter: freshPlayer.isImposter,
+                      votes: freshPlayer.votes ?? 0,
+                      votedOut: freshPlayer.votedOut,
+                    },
+                    lobby: {
+                      ...freshLobby,
+                      wordPairId: freshLobby.wordPairId,
+                    },
+                    players: players.map((x) => ({
+                      ...x,
+                      assignedWord: x.id === player.id ? x.assignedWord : null,
+                      isImposter: x.id === player.id ? x.isImposter : false,
+                      isHost: x.isHost ?? false,
+                      votes: x.votes ?? 0,
+                      votedOut: x.votedOut ?? false,
+                    })),
+                    gameStatus: gameStatus ?? null,
+                  },
+                }),
+              );
+            } catch (err) {
+              console.log(err);
+              return; // there is no user data, so no need to reconnect, just move forward
+            }
+          }
+          break;
+        }
         case "joinLobby": {
           clientInfo = addToClientInfo(
             ws,
@@ -135,25 +244,17 @@ wss.on("connection", async (ws, req) => {
             break;
           }
 
-          if (typeof clientInfo.code !== "string") {
-            return;
-          }
+          const lobby = await GameManager.getLobby(clientInfo.lobbyId);
           try {
             let gameStatus = await GameManager.getGameStatus(
               clientInfo.lobbyId,
             );
 
-            if (gameStatus === "VOTING") {
-              await GameManager.playerVotedOut(
-                clientInfo.lobbyId,
-                clientInfo.playerId,
-              );
-            }
-
             const playerToLeave = await GameManager.leaveLobby({
-              code: clientInfo.code,
+              code: lobby.code,
               playerId: clientInfo.playerId,
             });
+            if (!playerToLeave) break;
             removeSocketFromLobby(clientInfo.lobbyId, ws);
             if (playerToLeave.isHost) {
               const remainingCount = await GameManager.countLobbyPlayers(
@@ -189,16 +290,12 @@ wss.on("connection", async (ws, req) => {
         }
 
         case "votePlayer": {
-          clientInfo = addToClientInfo(
-            ws,
-            { targetId: parsed.data.msg.targetId },
-            clientId,
-          );
+          let targetId = parsed.data.msg.targetId;
           if (!clientInfo.lobbyId) {
             sendError(ws, "missing lobby id");
             break;
           }
-          const { lobbyId, playerId, targetId } = clientInfo;
+          const { lobbyId, playerId } = clientInfo;
           if (!lobbyId || !playerId || !targetId) {
             sendError(ws, "info required to cast action is missing");
             break;
@@ -209,59 +306,82 @@ wss.on("connection", async (ws, req) => {
             break;
           }
           try {
-            await GameManager.castVote(lobbyId, playerId, targetId);
-          } catch (err) {
-            sendError(ws, "vote_cast_failed");
-            break;
-          }
+            const { allVoted, results } = await castVoteAtomic(
+              lobbyId,
+              playerId,
+              targetId,
+            );
 
-          const lobby = await GameManager.getLobby(lobbyId);
-          await GameManager.setGameStatus(lobbyId, GameStatus.voting);
-          const allVoted = await GameManager.haveAllPlayersVoted(
-            lobbyId,
-            lobby.votingRound,
-          );
+            if (allVoted) {
+              broadCastToLobby(lobbyId, {
+                type: "votesCounted",
+                msg: { lobbyId, votes: results, gameStatus: GameStatus.voted },
+              });
 
-          if (allVoted) {
-            const results = await GameManager.countVotes(lobbyId);
-            await GameManager.setGameStatus(lobbyId, GameStatus.voted);
-            broadCastToLobby(lobbyId, {
-              type: "votesCounted",
-              msg: { lobbyId, votes: results, gameStatus: GameStatus.voted },
-            });
+              const top = results[0];
+              const second = results[1];
+              const hasMajority =
+                top && (!second || +top.voteCount > +second.voteCount);
 
-            await GameManager.playersLeftInGame(lobbyId);
+              if (hasMajority) {
+                let playerVotedOut = await GameManager.playerVotedOut(
+                  lobbyId,
+                  top.id,
+                );
+                const numOfPlayersLeft =
+                  await GameManager.playersLeftInGame(lobbyId);
 
-            const top = results[0];
-            const second = results[1];
-            const hasMajority =
-              top && (!second || +top.voteCount > +second.voteCount);
+                if (top.isImposter) {
+                  const remainingImposters =
+                    await GameManager.getRemainingImposters(lobbyId);
 
-            if (hasMajority) {
-              let playerVotedOut = await GameManager.playerVotedOut(
-                lobbyId,
-                top.id,
-              );
-              const numOfPlayersLeft =
-                await GameManager.playersLeftInGame(lobbyId);
-
-              if (top.isImposter) {
-                const remainingImposters =
-                  await GameManager.getRemainingImposters(lobbyId);
-
-                if (remainingImposters === 0) {
-                  await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
-                  broadCastToLobby(lobbyId, {
-                    type: "gameOver",
-                    msg: {
-                      lastPlayerToBeVotedOutId: top.id,
+                  if (remainingImposters === 0) {
+                    await GameManager.setGameStatus(
                       lobbyId,
-                      winner: "allies",
-                      name: playerVotedOut.name,
-                      gameStatus: GameStatus.gameOver,
-                    },
-                  });
-                  await GameManager.resetLobbyVotingRound(lobbyId);
+                      GameStatus.gameOver,
+                    );
+                    broadCastToLobby(lobbyId, {
+                      type: "gameOver",
+                      msg: {
+                        lastPlayerToBeVotedOutId: top.id,
+                        lobbyId,
+                        winner: "allies",
+                        name: playerVotedOut.name,
+                        gameStatus: GameStatus.gameOver,
+                      },
+                    });
+                    await GameManager.resetLobbyVotingRound(lobbyId);
+                  } else {
+                    if (numOfPlayersLeft < 3) {
+                      await GameManager.setGameStatus(
+                        lobbyId,
+                        GameStatus.gameOver,
+                      );
+                      broadCastToLobby(lobbyId, {
+                        type: "gameOver",
+                        msg: {
+                          lastPlayerToBeVotedOutId: top.id,
+                          lobbyId,
+                          winner: "imposter",
+                          name: playerVotedOut.name,
+                          gameStatus: GameStatus.gameOver,
+                        },
+                      });
+                      await GameManager.resetLobbyVotingRound(lobbyId);
+                      break;
+                    } else {
+                      await GameManager.setGameStatus(lobbyId, GameStatus.idle);
+                      await GameManager.incrementVotingRound(lobbyId);
+                      broadCastToLobby(lobbyId, {
+                        type: "playerVotedOut",
+                        msg: {
+                          playerId: top.id,
+                          isImposter: top.isImposter,
+                        },
+                      });
+                      break;
+                    }
+                  }
                 } else {
                   if (numOfPlayersLeft < 3) {
                     await GameManager.setGameStatus(
@@ -279,55 +399,35 @@ wss.on("connection", async (ws, req) => {
                       },
                     });
                     await GameManager.resetLobbyVotingRound(lobbyId);
-                    break;
                   } else {
                     await GameManager.setGameStatus(lobbyId, GameStatus.idle);
                     await GameManager.incrementVotingRound(lobbyId);
                     broadCastToLobby(lobbyId, {
                       type: "playerVotedOut",
-                      msg: { playerId: top.id, isImposter: top.isImposter },
+                      msg: { playerId: top.id, isImposter: false },
                     });
-                    break;
                   }
                 }
               } else {
-                if (numOfPlayersLeft < 3) {
-                  await GameManager.setGameStatus(lobbyId, GameStatus.gameOver);
-                  broadCastToLobby(lobbyId, {
-                    type: "gameOver",
-                    msg: {
-                      lastPlayerToBeVotedOutId: top.id,
-                      lobbyId,
-                      winner: "imposter",
-                      name: playerVotedOut.name,
-                      gameStatus: GameStatus.gameOver,
-                    },
-                  });
-                  await GameManager.resetLobbyVotingRound(lobbyId);
-                } else {
-                  await GameManager.setGameStatus(lobbyId, GameStatus.idle);
-                  await GameManager.incrementVotingRound(lobbyId);
-                  broadCastToLobby(lobbyId, {
-                    type: "playerVotedOut",
-                    msg: { playerId: top.id, isImposter: false },
-                  });
-                }
+                await GameManager.incrementVotingRound(lobbyId);
+                await GameManager.setGameStatus(lobbyId, GameStatus.idle);
+                broadCastToLobby(lobbyId, {
+                  type: "nobodyVotedOut",
+                  msg: { lobbyId },
+                });
+                break;
               }
             } else {
-              await GameManager.incrementVotingRound(lobbyId);
-              await GameManager.setGameStatus(lobbyId, GameStatus.idle);
               broadCastToLobby(lobbyId, {
-                type: "nobodyVotedOut",
-                msg: { lobbyId },
+                type: "playerVoted",
+                msg: { playerId, targetId, name: clientInfo.name },
               });
-              break;
             }
-          } else {
-            broadCastToLobby(lobbyId, {
-              type: "playerVoted",
-              msg: { playerId, targetId },
-            });
+          } catch (err) {
+            sendError(ws, "vote_cast_failed");
+            break;
           }
+
           break;
         }
 
@@ -442,10 +542,6 @@ wss.on("connection", async (ws, req) => {
               clientInfo.lobbyId,
             );
             if (gameStatus === GameStatus.voting) {
-              await GameManager.playerVotedOut(
-                clientInfo.lobbyId,
-                clientInfo.playerId!,
-              );
             }
             broadCastToLobby(clientInfo.lobbyId, {
               type: "playerLeft",
@@ -455,7 +551,8 @@ wss.on("connection", async (ws, req) => {
               code: clientInfo.code!,
               playerId: clientInfo.playerId!,
             });
-            if (playerToLeave.isHost) {
+
+            if (playerToLeave?.isHost) {
               const remainingCount = await GameManager.countLobbyPlayers(
                 clientInfo.lobbyId,
               );
@@ -500,112 +597,6 @@ wss.on("connection", async (ws, req) => {
     isAlive = false;
     ws.ping();
   }, 35000);
-
-  if (token) {
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET!) as {
-        player: Player;
-        lobby: Lobby;
-      };
-      const { player, lobby } = payload;
-
-      const isActive = await GameManager.isLobbyActive(lobby.id);
-      if (!isActive) {
-        return;
-      }
-
-      const existing = disconnectTimers.get(player.id);
-      if (existing) {
-        clearTimeout(existing);
-        disconnectTimers.delete(player.id);
-      }
-
-      addToClientInfo(
-        ws,
-        {
-          playerId: player.id,
-          lobbyId: lobby.id,
-          name: player.name,
-          code: lobby.code,
-          clientId,
-        },
-        clientId,
-      );
-
-      const freshPlayer = await GameManager.getPlayerInLobby(
-        lobby.id,
-        player.id,
-      );
-
-      for (const [key, value] of Object.entries(freshPlayer)) {
-        console.log(`${key}:${value}`);
-      }
-
-      const freshLobby = await GameManager.getLobby(lobby.id);
-      const players = await GameManager.getAllPlayers(lobby.id);
-
-      let gameStatus = await GameManager.getGameStatus(freshLobby.id);
-      const votes = await GameManager.countVotes(freshLobby.id);
-      const playerThatIsReconnectingVotes = votes.find(
-        (x) => x.id === freshPlayer.id,
-      );
-
-      if (gameStatus === GameStatus.voting || gameStatus === GameStatus.voted) {
-        broadCastToLobby(lobby.id, {
-          type: "playerReconnected",
-          msg: {
-            player: {
-              id: freshPlayer.id,
-              lobbyId: freshPlayer.lobbyId,
-              name: freshPlayer.name,
-              isHost: freshPlayer.isHost ?? false,
-              assignedWord: freshPlayer.assignedWord,
-              isImposter: freshPlayer.isImposter,
-              votes: Number(playerThatIsReconnectingVotes?.voteCount || 0),
-              votedOut: freshPlayer.votedOut ?? false,
-            },
-            gameStatus: gameStatus ?? null,
-          },
-        });
-      }
-
-      addSocketToLobby(lobby.id, ws);
-
-      //
-
-      ws.send(
-        JSON.stringify({
-          type: "reconnected",
-          msg: {
-            player: {
-              id: freshPlayer.id,
-              name: freshPlayer.name,
-              isHost: freshPlayer.isHost ?? false,
-              assignedWord: freshPlayer.assignedWord,
-              isImposter: freshPlayer.isImposter,
-              votes: freshPlayer.votes ?? 0,
-              votedOut: freshPlayer.votedOut,
-            },
-            lobby: {
-              ...freshLobby,
-              wordPairId: freshLobby.wordPairId,
-            },
-            players: players.map((x) => ({
-              ...x,
-              assignedWord: x.assignedWord,
-              isHost: x.isHost ?? false,
-              votes: x.votes ?? 0,
-              votedOut: x.votedOut ?? false,
-            })),
-            gameStatus: gameStatus ?? null,
-          },
-        }),
-      );
-    } catch (err) {
-      console.log(err);
-      return; // there is no user data, so no need to reconnect, just move forward
-    }
-  }
 
   if (!socketToClient.get(ws)?.lobbyId) {
     socketToClient.set(ws, { clientId });

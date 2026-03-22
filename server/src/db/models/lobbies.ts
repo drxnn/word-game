@@ -1,6 +1,7 @@
-import { GameStatus } from "shared-types";
+import { GameStatus, PlayerVoteResult } from "shared-types";
 import { query, connect } from "../index";
-import { enterPlayer } from "./players";
+import { enterPlayer, votePlayer } from "./players";
+import camelcaseKeys from "camelcase-keys";
 
 export async function createLobby(code: string) {
   if (!code) throw new Error("Code is required");
@@ -15,7 +16,7 @@ export async function createLobby(code: string) {
         `,
       [code],
     );
-    const lobby = result.rows[0];
+    const lobby = camelcaseKeys([result.rows[0]])[0];
 
     await client.query(`INSERT INTO games (lobby_id) VALUES ($1)`, [lobby.id]);
     await client.query(`COMMIT`);
@@ -23,7 +24,9 @@ export async function createLobby(code: string) {
   } catch (err: any) {
     await client.query(`ROLLBACK`);
     if (err.code === "23505") {
-      throw new Error("Lobby code already exists");
+      const wrappedErr = new Error("Lobby code already exists");
+      (wrappedErr as any).code = "23505";
+      throw wrappedErr;
     } else {
       throw new Error("Something went wrong when creating Lobby");
     }
@@ -38,6 +41,78 @@ export async function isLobbyActive(lobbyId: string) {
   return result.rows.length > 0;
 }
 
+export async function castVoteAtomic(
+  lobbyId: string,
+  playerId: string,
+  targetId: string,
+): Promise<{ allVoted: boolean; results: PlayerVoteResult[] }> {
+  const client = await connect();
+  try {
+    await client.query("BEGIN");
+    const currentStatus = await client.query(
+      `SELECT game_status FROM games WHERE lobby_id = $1 FOR UPDATE`,
+      [lobbyId],
+    );
+    const status = camelcaseKeys(currentStatus.rows)[0]?.gameStatus;
+    if (status !== "VOTING") {
+      throw new Error("Voting is not active");
+    }
+    const roundResult = await client.query(
+      `SELECT voting_round FROM lobbies WHERE id = $1`,
+      [lobbyId],
+    );
+    const votingRound = camelcaseKeys(roundResult.rows)[0]?.votingRound;
+
+    await client.query(
+      `INSERT INTO votes (player_id, voted_for_player_id, lobby_id, voting_round)
+       VALUES ($1, $2, $3, $4)`,
+      [playerId, targetId, lobbyId, votingRound],
+    );
+
+    const checkResult = await client.query(
+      `SELECT
+        (SELECT COUNT(*) FROM players WHERE lobby_id = $1 AND voted_out IS NOT TRUE) as total_players,
+        (SELECT COUNT(*) FROM votes WHERE lobby_id = $1 AND voting_round = $2) as total_votes`,
+      [lobbyId, votingRound],
+    );
+    const { total_players, total_votes } = checkResult.rows[0];
+    const allVoted = Number(total_votes) === Number(total_players);
+
+    let results = [];
+    if (allVoted) {
+      const voteCounts = await client.query(
+        `
+    SELECT 
+    p.id,
+    p.name,
+    p.is_imposter,
+    COUNT(v.voted_for_player_id) as vote_count
+    FROM players p
+    LEFT JOIN votes v ON p.id = v.voted_for_player_id
+    AND v.voting_round = $2
+    WHERE p.lobby_id=$1 AND p.voted_out IS NOT TRUE
+    GROUP BY p.id, p.name, p.is_imposter
+    ORDER BY vote_count DESC
+
+    `,
+        [lobbyId, votingRound],
+      );
+      await client.query(
+        `UPDATE games SET game_status = 'VOTED' WHERE lobby_id = $1`,
+        [lobbyId],
+      );
+      results = camelcaseKeys(voteCounts.rows);
+    }
+
+    await client.query("COMMIT");
+    return { allVoted, results };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
 export async function setImposterKnows(lobbyId: string, flag: boolean) {
   if (!lobbyId) throw new Error("Lobby ID is required");
   if (typeof flag !== "boolean") throw new Error("Flag must be a boolean");

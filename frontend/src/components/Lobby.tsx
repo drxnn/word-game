@@ -6,6 +6,7 @@ import { GameOptions, LobbyType, Player } from "shared-types";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -135,6 +136,11 @@ export default function Lobby({
                       <DialogTitle className="text-indigo-900 font-semibold">
                         Game Options
                       </DialogTitle>
+
+                      <DialogDescription className="sr-only">
+                        A dialog for changing game mode, you can choose to give
+                        the imposter a hint as well as number of imposters.
+                      </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-5 pt-1">

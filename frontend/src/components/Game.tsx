@@ -65,8 +65,6 @@ export default function Game({
   return (
     <div className="min-h-fit bg-gradient-to-br from-violet-50 via-indigo-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
-        {/* Game Title */}
-
         {gameStatusState.gameStatus === GameStatus.gameOver ? (
           <Card className="p-6 text-center bg-indigo-50 border-indigo-200">
             <h2 className="text-2xl font-bold text-indigo-800">Game Over!</h2>
@@ -94,7 +92,6 @@ export default function Game({
           </>
         )}
 
-        {/* Players List */}
         <Card className="p-6 shadow-xl border-none bg-white/80 backdrop-blur-sm">
           <div className="space-y-4">
             <div className="text-lg font-semibold text-slate-800 flex items-center justify-between border-b border-indigo-100 pb-3">

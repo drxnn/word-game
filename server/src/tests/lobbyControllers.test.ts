@@ -3,7 +3,7 @@ import { app } from "../main";
 import { strict as assert } from "node:assert";
 
 async function testCreateLobby() {
-  console.log("Testing: Create Lobby...");
+  console.log("Testing Create Lobby");
 
   const response = await request(app)
     .post("/lobbies")
@@ -16,6 +16,6 @@ async function testCreateLobby() {
   assert.ok(response.body.lobby, "Should have lobby property");
   assert.ok(response.body.lobby.lobby.code, "Should have lobby code");
 
-  console.log("✓ Create Lobby passed");
+  console.log("Create Lobby passed");
   return response.body.lobby;
 }

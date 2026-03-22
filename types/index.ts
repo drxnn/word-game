@@ -258,6 +258,10 @@ export const ClientToServerMapSchema = z.object({
       .trim()
       .optional(),
   }),
+
+  auth: z.object({
+    token: z.string(),
+  }),
   leaveLobby: z.object({
     lobbyId: z.uuid(),
     playerId: z.uuid(),
@@ -375,6 +379,10 @@ export const ClientToServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerBackInLobby"),
     msg: ServerToClientMapSchema.shape.playerBackInLobby,
+  }),
+  z.object({
+    type: z.literal("auth"),
+    msg: ClientToServerMapSchema.shape.auth,
   }),
   z
     .object({

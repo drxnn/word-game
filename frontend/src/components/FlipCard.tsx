@@ -21,7 +21,6 @@ export default function FlipCard({ word, isImposter, options }: FlipCardProps) {
         }}
         onClick={() => setIsFlipped(!isFlipped)}
       >
-        {/* Front of card */}
         <Card
           className="absolute w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 border-none shadow-2xl"
           style={{ backfaceVisibility: "hidden" }}
@@ -33,7 +32,6 @@ export default function FlipCard({ word, isImposter, options }: FlipCardProps) {
           </div>
         </Card>
 
-        {/* Back of card */}
         <Card
           className="absolute w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-500 to-orange-500 border-none shadow-2xl"
           style={{

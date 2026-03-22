@@ -25,5 +25,4 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   }
-  // "include": ["src/**/*", "types/index.d.ts"]
 }

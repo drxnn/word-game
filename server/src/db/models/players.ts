@@ -1,5 +1,6 @@
 import { Player, PlayerVoteResult } from "shared-types";
-import { query } from "../index";
+import { connect, query } from "../index";
+import camelcaseKeys from "camelcase-keys";
 
 export async function enterPlayer(name: string, lobbyId: string) {
   if (!name) throw new Error("Name is required");
@@ -108,7 +109,7 @@ export async function countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {
 
   let votingRound = await getRoundFromLobby(lobbyId);
 
-  const { rows } = await query(
+  const result = await query(
     `
     SELECT 
     p.id,
@@ -125,8 +126,8 @@ export async function countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {
     `,
     [lobbyId, votingRound],
   );
-
-  return rows; // first one has the most vote but check if imposter
+  //
+  return result.rows;
 }
 
 export async function checkIfAllPlayersVoted(
@@ -247,6 +248,9 @@ export async function playersLeftInGame(lobbyId: string) {
     [lobbyId],
   );
 
+  if (!result.rows[0]) {
+    throw new Error("Unexpected empty result from COUNT query");
+  }
   return parseInt(result.rows[0].count, 10);
 }
 
@@ -291,8 +295,15 @@ export async function assignWordsToPlayers(lobbyId: string) {
 }
 
 export async function reassignHost(lobbyId: string): Promise<Player | null> {
-  const result = await query(
-    `UPDATE players
+  const client = await connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `SELECT id FROM players WHERE lobby_id = $1 FOR UPDATE`,
+      [lobbyId],
+    );
+    const result = await client.query(
+      `UPDATE players
      SET is_host = true
      WHERE id = (
        SELECT id FROM players
@@ -302,9 +313,16 @@ export async function reassignHost(lobbyId: string): Promise<Player | null> {
      )
      AND lobby_id = $1
      RETURNING *`,
-    [lobbyId],
-  );
-  return result.rows[0] ?? null;
+      [lobbyId],
+    );
+    await client.query("COMMIT");
+    return result.rows[0] ? camelcaseKeys([result.rows[0]])[0] : null;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // In server/src/db/models/players.ts:

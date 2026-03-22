@@ -9,7 +9,9 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 });
-
+pool.on("error", (err) => {
+  console.error("Unexpected database pool error:", err);
+});
 export const query = async (text: string, params?: any[]) => {
   const result = await pool.query(text, params);
   return {

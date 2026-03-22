@@ -35,6 +35,7 @@ export function useWebSocket({
   setOptions,
 }: UseWebSocketParams) {
   const ws = useRef<WebSocket | null>(null);
+
   const sendWhenReady = (message: ClientToServer) => {
     if (!ws.current) {
       return;
@@ -58,7 +59,9 @@ export function useWebSocket({
   };
 
   useEffect(() => {
-    ws.current = startWsConnection();
+    let timeout = 250;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    const intentionalClose = { current: false };
 
     const handleMessage = (e: MessageEvent) => {
       let message;
@@ -260,26 +263,47 @@ export function useWebSocket({
         }
         case "error": {
           setNotificationAlert({ type: "error", message: parsed.data.msg });
+          break;
         }
       }
     };
 
-    const handleClose = () => console.log("ws closed");
-    const handleError = (err: Event) => console.error("ws error", err);
-    ws.current.addEventListener("message", handleMessage);
-    ws.current.addEventListener("close", handleClose);
-    ws.current.addEventListener("error", handleError);
+    function connect() {
+      const socket = startWsConnection();
+      ws.current = socket;
+
+      socket.addEventListener("message", handleMessage);
+      socket.addEventListener("error", (err) => console.error("ws error", err));
+
+      socket.addEventListener("open", () => {
+        timeout = 250;
+      });
+
+      socket.addEventListener("close", () => {
+        if (intentionalClose.current) return;
+        if (timeout >= 30000) {
+          setNotificationAlert({
+            type: "error",
+            message: "Lost connection to server. Please refresh the page.",
+          });
+          return;
+        }
+
+        timeout = Math.min(30000, timeout * 2);
+        console.log(`ws closed, reconnecting in ${timeout} ms`);
+        reconnectTimer = setTimeout(connect, timeout + Math.random() * 500); // for jitter
+      });
+    }
+
+    connect();
 
     return () => {
-      if (!ws.current) return;
-      ws.current.removeEventListener("message", handleMessage);
-      ws.current.removeEventListener("close", handleClose);
-      ws.current.removeEventListener("error", handleError);
-
-      if (ws.current.readyState === WebSocket.OPEN) {
+      intentionalClose.current = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws.current) {
         ws.current.close();
+        ws.current = null;
       }
-      ws.current = null;
     };
   }, []);
 

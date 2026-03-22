@@ -1,8 +1,6 @@
 import { customAlphabet } from "nanoid";
 
 import {
-  Lobby,
-  Player,
   GameOptions,
   CreateLobbyInput,
   JoinLobbyInput,
@@ -73,7 +71,7 @@ class _GameManager {
       return { player, players, lobby };
     } catch (err: any) {
       if (err.code === "23505")
-        throw new Error("Player name already taken in this lobby"); // NAME is unique so someone else took it
+        throw new Error("Player name already taken in this lobby");
       throw err;
     }
   }
@@ -125,7 +123,10 @@ class _GameManager {
 
     const imposterKnows = options?.imposterKnows ?? false;
     const numOfImposters = options?.numOfImposters ?? 1;
-    const imposterHint = options?.imposterHint ?? false;
+
+    const playerCount = await playersModel.playersLeftInGame(lobbyId);
+    if (playerCount < 3) throw new Error("Need at least 3 players to start");
+    if (numOfImposters >= playerCount) throw new Error("Too many imposters");
 
     const round = await lobbiesModel.incrementVotingRound(lobbyId);
     if (imposterKnows) {
@@ -145,32 +146,12 @@ class _GameManager {
     };
   }
 
-  async castVote(lobbyId: string, voterId: string, targetId: string) {
-    if (!lobbyId) {
-      throw new Error("Lobby id required");
-    }
-    if (!voterId || !targetId) {
-      throw new Error("Something went wrong, could not cast vote ");
-    }
-
-    try {
-      let votedPlayer = await playersModel.votePlayer(
-        voterId,
-        targetId,
-        lobbyId,
-      );
-      return votedPlayer;
-    } catch (err) {
-      throw err;
-    }
-  }
-
   async countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {
     if (!lobbyId) {
       throw new Error("Something went wrong, lobby id not found");
     }
 
-    const votes = await playersModel.countVotes(lobbyId); // returns all players {id,name, is imposter,vc}
+    const votes = await playersModel.countVotes(lobbyId);
     return votes;
   }
 

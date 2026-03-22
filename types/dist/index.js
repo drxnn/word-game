@@ -98,7 +98,7 @@ var ClientInfoSchema = import_zod.z.object({
   options: gameOptionsSchema.optional()
 });
 var createLobbySchema = import_zod.z.object({
-  name: import_zod.z.string().trim().min(2).max(20),
+  name: PlayerSchema.shape.name,
   options: gameOptionsSchema
 });
 var startGameSchema = import_zod.z.object({
@@ -228,6 +228,9 @@ var ClientToServerMapSchema = import_zod.z.object({
     name: import_zod.z.string().trim().max(50),
     code: import_zod.z.string().regex(/^[A-Z0-9]+$/).trim().optional()
   }),
+  auth: import_zod.z.object({
+    token: import_zod.z.string()
+  }),
   leaveLobby: import_zod.z.object({
     lobbyId: import_zod.z.uuid(),
     playerId: import_zod.z.uuid(),
@@ -339,6 +342,10 @@ var ClientToServerSchema = import_zod.z.discriminatedUnion("type", [
   import_zod.z.object({
     type: import_zod.z.literal("playerBackInLobby"),
     msg: ServerToClientMapSchema.shape.playerBackInLobby
+  }),
+  import_zod.z.object({
+    type: import_zod.z.literal("auth"),
+    msg: ClientToServerMapSchema.shape.auth
   }),
   import_zod.z.object({
     type: import_zod.z.literal("createLobby"),

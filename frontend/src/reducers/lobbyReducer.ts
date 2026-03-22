@@ -68,7 +68,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
         ...state,
         lobby: {
           ...state.lobby,
-          wordPairId: "",
+          wordPairId: null,
           votingRound: state.lobby.votingRound + 1,
           gameStarted: false,
         },

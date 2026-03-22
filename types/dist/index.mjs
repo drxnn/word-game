@@ -54,7 +54,7 @@ var ClientInfoSchema = z.object({
   options: gameOptionsSchema.optional()
 });
 var createLobbySchema = z.object({
-  name: z.string().trim().min(2).max(20),
+  name: PlayerSchema.shape.name,
   options: gameOptionsSchema
 });
 var startGameSchema = z.object({
@@ -184,6 +184,9 @@ var ClientToServerMapSchema = z.object({
     name: z.string().trim().max(50),
     code: z.string().regex(/^[A-Z0-9]+$/).trim().optional()
   }),
+  auth: z.object({
+    token: z.string()
+  }),
   leaveLobby: z.object({
     lobbyId: z.uuid(),
     playerId: z.uuid(),
@@ -295,6 +298,10 @@ var ClientToServerSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("playerBackInLobby"),
     msg: ServerToClientMapSchema.shape.playerBackInLobby
+  }),
+  z.object({
+    type: z.literal("auth"),
+    msg: ClientToServerMapSchema.shape.auth
   }),
   z.object({
     type: z.literal("createLobby"),

@@ -7,9 +7,10 @@ import {
   getLobbySchema,
   deleteLobbySchema,
 } from "shared-types";
-import { success, z } from "zod";
+import { z } from "zod";
 import { getLobbyByCode } from "../db/models/lobbies";
 import jwt from "jsonwebtoken";
+import { lobbyTracker } from "../services/lobbyCleanup";
 
 export async function createLobby(
   req: Request,
@@ -36,6 +37,7 @@ export async function createLobby(
       { expiresIn: "2h" },
     );
 
+    lobbyTracker(lobby.id);
     return res.status(201).json({ lobby, player, token });
   } catch (err) {
     next(err);

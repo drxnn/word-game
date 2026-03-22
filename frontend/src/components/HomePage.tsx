@@ -289,7 +289,6 @@ export default function HomePage() {
           ) : (
             <Card className="p-8 shadow-2xl border-none bg-white/80 backdrop-blur-sm">
               <div className="space-y-6">
-                {/* Name Input */}
                 <div className="space-y-2">
                   <label
                     htmlFor="playerName"
@@ -312,7 +311,6 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Buttons */}
                 <div className="space-y-3">
                   <Button
                     onClick={handleCreateLobby}
