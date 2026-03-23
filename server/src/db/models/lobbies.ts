@@ -62,6 +62,16 @@ export async function castVoteAtomic(
       [lobbyId],
     );
     const votingRound = camelcaseKeys(roundResult.rows)[0]?.votingRound;
+    const targetCheck = await client.query(
+      `SELECT voted_out FROM players WHERE id = $1 AND lobby_id = $2`,
+      [targetId, lobbyId],
+    );
+    if (!targetCheck.rows[0]) {
+      throw new Error("Target player not found");
+    }
+    if (targetCheck.rows[0].voted_out) {
+      throw new Error("Cannot vote for a player who has been voted out");
+    }
 
     await client.query(
       `INSERT INTO votes (player_id, voted_for_player_id, lobby_id, voting_round)

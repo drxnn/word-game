@@ -272,6 +272,26 @@ wss.on("connection", async (ws, req) => {
                 }
               }
             }
+            if (
+              gameStatus === GameStatus.started ||
+              gameStatus === GameStatus.idle ||
+              gameStatus === GameStatus.voting ||
+              gameStatus === GameStatus.voted
+            ) {
+              await GameManager.resetLobbyVotingRound(clientInfo.lobbyId);
+              await GameManager.setGameStatus(
+                clientInfo.lobbyId,
+                GameStatus.idle,
+              );
+
+              broadCastToLobby(clientInfo.lobbyId, {
+                type: "gameAborted",
+                msg: {
+                  lobbyId: clientInfo.lobbyId,
+                  reason: `${clientInfo.name} left the game`,
+                },
+              });
+            }
           } catch (err) {
             sendError(ws, "leaving lobby failed");
 
@@ -303,6 +323,11 @@ wss.on("connection", async (ws, req) => {
           const currentStatus = await GameManager.getGameStatus(lobbyId);
           if (currentStatus !== GameStatus.voting) {
             sendError(ws, "voting is not active");
+            break;
+          }
+          const voter = await GameManager.getPlayerInLobby(lobbyId, playerId);
+          if (voter.votedOut) {
+            sendError(ws, "you_have_been_voted_out");
             break;
           }
           try {
@@ -541,8 +566,7 @@ wss.on("connection", async (ws, req) => {
             const gameStatus = await GameManager.getGameStatus(
               clientInfo.lobbyId,
             );
-            if (gameStatus === GameStatus.voting) {
-            }
+
             broadCastToLobby(clientInfo.lobbyId, {
               type: "playerLeft",
               msg: { playerId: clientInfo.playerId, name: clientInfo.name },
@@ -568,13 +592,33 @@ wss.on("connection", async (ws, req) => {
                 }
               }
             }
+            if (
+              gameStatus === GameStatus.started ||
+              gameStatus === GameStatus.idle ||
+              gameStatus === GameStatus.voting ||
+              gameStatus === GameStatus.voted
+            ) {
+              await GameManager.resetLobbyVotingRound(clientInfo.lobbyId);
+              await GameManager.setGameStatus(
+                clientInfo.lobbyId,
+                GameStatus.idle,
+              );
+
+              broadCastToLobby(clientInfo.lobbyId, {
+                type: "gameAborted",
+                msg: {
+                  lobbyId: clientInfo.lobbyId,
+                  reason: `${clientInfo.name} left the game`,
+                },
+              });
+            }
           }
         } catch (err) {
           console.error("disconnect timer failed:", err);
         } finally {
           disconnectTimers.delete(clientInfo.playerId!);
         }
-      }, 180000);
+      }, 60000);
       disconnectTimers.set(clientInfo.playerId, timer);
     }
     if (clientInfo?.lobbyId) {
