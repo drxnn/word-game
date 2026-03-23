@@ -86,6 +86,18 @@ export function useWebSocket({
           lobbyDispatch({ type: "PLAYER_JOINED", payload: newPlayer }); // 2
           break;
         }
+        case "gameAborted": {
+          const { reason } = parsed.data.msg;
+          setNotificationAlert({ type: "info", message: reason });
+          setInGame(false);
+          setVoted(false);
+          setVoteState("idle");
+          setVotesCounted(false);
+          setGameStatus(GameStatus.idle);
+          setWinner(null);
+          lobbyDispatch({ type: "EXIT_TO_LOBBY" });
+          break;
+        }
         case "playerInfo": {
           const playerInfo = parsed.data.msg;
 

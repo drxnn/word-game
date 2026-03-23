@@ -173,7 +173,10 @@ export const ServerToClientMapSchema = z.object({
     }).extend({ votedOut: z.boolean() }),
     gameStatus: z.enum(GameStatus),
   }),
-
+  gameAborted: z.object({
+    lobbyId: z.uuid(),
+    reason: z.string(),
+  }),
   playerInfo: PlayerSchema.pick({
     name: true,
     isHost: true,
@@ -288,6 +291,10 @@ export const ServerToClientSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("voteState"),
     msg: ClientToServerMapSchema.shape.voteState,
+  }),
+  z.object({
+    type: z.literal("gameAborted"),
+    msg: ServerToClientMapSchema.shape.gameAborted,
   }),
   z.object({
     type: z.literal("hostReassigned"),

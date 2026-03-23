@@ -155,6 +155,10 @@ var ServerToClientMapSchema = import_zod.z.object({
     }).extend({ votedOut: import_zod.z.boolean() }),
     gameStatus: import_zod.z.enum(GameStatus)
   }),
+  gameAborted: import_zod.z.object({
+    lobbyId: import_zod.z.uuid(),
+    reason: import_zod.z.string()
+  }),
   playerInfo: PlayerSchema.pick({
     name: true,
     isHost: true,
@@ -252,6 +256,10 @@ var ServerToClientSchema = import_zod.z.discriminatedUnion("type", [
   import_zod.z.object({
     type: import_zod.z.literal("voteState"),
     msg: ClientToServerMapSchema.shape.voteState
+  }),
+  import_zod.z.object({
+    type: import_zod.z.literal("gameAborted"),
+    msg: ServerToClientMapSchema.shape.gameAborted
   }),
   import_zod.z.object({
     type: import_zod.z.literal("hostReassigned"),

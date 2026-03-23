@@ -36,7 +36,7 @@ export default function HomePage() {
   const [lobbyCode, setLobbyCode] = useState("");
   const [options, setOptions] = useState<GameOptions>({
     imposterHint: false,
-    numOfImposters: 1, // default
+    numOfImposters: 1,
   });
 
   const { ws, sendWhenReady } = useWebSocket({

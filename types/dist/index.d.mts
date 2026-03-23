@@ -188,6 +188,10 @@ declare const ServerToClientMapSchema: z.ZodObject<{
         }, z.core.$strip>;
         gameStatus: z.ZodEnum<typeof GameStatus>;
     }, z.core.$strip>;
+    gameAborted: z.ZodObject<{
+        lobbyId: z.ZodUUID;
+        reason: z.ZodString;
+    }, z.core.$strip>;
     playerInfo: z.ZodObject<{
         name: z.ZodString;
         isImposter: z.ZodBoolean;
@@ -361,6 +365,12 @@ declare const ClientToServerMapSchema: z.ZodObject<{
 declare const ServerToClientSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     type: z.ZodLiteral<"voteState">;
     msg: z.ZodUnion<readonly [z.ZodLiteral<"start">, z.ZodLiteral<"end">, z.ZodLiteral<"idle">]>;
+}, z.core.$strip>, z.ZodObject<{
+    type: z.ZodLiteral<"gameAborted">;
+    msg: z.ZodObject<{
+        lobbyId: z.ZodUUID;
+        reason: z.ZodString;
+    }, z.core.$strip>;
 }, z.core.$strip>, z.ZodObject<{
     type: z.ZodLiteral<"hostReassigned">;
     msg: z.ZodObject<{
