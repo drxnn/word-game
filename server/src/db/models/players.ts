@@ -127,7 +127,10 @@ export async function countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {
     [lobbyId, votingRound],
   );
   //
-  return result.rows;
+  return result.rows.map((r: any) => ({
+    ...r,
+    voteCount: Number(r.voteCount),
+  }));
 }
 
 export async function checkIfAllPlayersVoted(

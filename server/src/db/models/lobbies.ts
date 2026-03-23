@@ -111,7 +111,11 @@ export async function castVoteAtomic(
         `UPDATE games SET game_status = 'VOTED' WHERE lobby_id = $1`,
         [lobbyId],
       );
-      results = camelcaseKeys(voteCounts.rows);
+
+      results = camelcaseKeys(voteCounts.rows).map((r: any) => ({
+        ...r,
+        voteCount: Number(r.voteCount),
+      }));
     }
 
     await client.query("COMMIT");

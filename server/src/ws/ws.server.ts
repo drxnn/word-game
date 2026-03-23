@@ -272,9 +272,16 @@ wss.on("connection", async (ws, req) => {
                 }
               }
             }
+            broadCastToLobby(clientInfo.lobbyId, {
+              type: "playerLeft",
+              msg: {
+                lobbyId: clientInfo.lobbyId,
+                playerId: clientInfo.playerId,
+                name: clientInfo.name,
+              },
+            });
             if (
               gameStatus === GameStatus.started ||
-              gameStatus === GameStatus.idle ||
               gameStatus === GameStatus.voting ||
               gameStatus === GameStatus.voted
             ) {
@@ -298,14 +305,6 @@ wss.on("connection", async (ws, req) => {
             break;
           }
 
-          broadCastToLobby(clientInfo.lobbyId, {
-            type: "playerLeft",
-            msg: {
-              lobbyId: clientInfo.lobbyId,
-              playerId: clientInfo.playerId,
-              name: clientInfo.name,
-            },
-          });
           break;
         }
 
@@ -594,7 +593,6 @@ wss.on("connection", async (ws, req) => {
             }
             if (
               gameStatus === GameStatus.started ||
-              gameStatus === GameStatus.idle ||
               gameStatus === GameStatus.voting ||
               gameStatus === GameStatus.voted
             ) {
