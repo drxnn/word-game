@@ -144,7 +144,7 @@ export async function checkIfAllPlayersVoted(
   const { rows } = await query(
     `
     SELECT
-    (SELECT COUNT(*) FROM players WHERE lobby_id=$1) as total_players,
+(SELECT COUNT(*) FROM players WHERE lobby_id=$1 AND voted_out IS NOT TRUE) as total_players
     (SELECT COUNT(DISTINCT player_id) FROM votes
      WHERE lobby_id=$1 AND voting_round=$2) AS votes_cast
     `,

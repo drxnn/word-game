@@ -110,6 +110,7 @@ export function useWebSocket({
           });
           setInGame(true);
           setVoted(false);
+
           setVoteState("idle");
           setVotesCounted(false);
           setGameStatus(GameStatus.started);
@@ -252,6 +253,9 @@ export function useWebSocket({
           });
           if (gameStatus === GameStatus.voting) {
             setVoteState("start");
+          } else if (gameStatus === GameStatus.voted) {
+            setVoteState("idle");
+            setVotesCounted(true);
           }
           setGameStatus(gameStatus ?? GameStatus.idle);
           if (

@@ -256,6 +256,7 @@ wss.on("connection", async (ws, req) => {
             });
             if (!playerToLeave) break;
             removeSocketFromLobby(clientInfo.lobbyId, ws);
+
             if (playerToLeave.isHost) {
               const remainingCount = await GameManager.countLobbyPlayers(
                 clientInfo.lobbyId,
@@ -298,6 +299,20 @@ wss.on("connection", async (ws, req) => {
                   reason: `${clientInfo.name} left the game`,
                 },
               });
+
+              // this is so that the host can see that other players are also inLobby and can start a new game
+              const remainingSockets = lobbyToSockets.get(clientInfo.lobbyId);
+              if (remainingSockets) {
+                for (const s of remainingSockets) {
+                  const info = socketToClient.get(s);
+                  if (info?.playerId) {
+                    broadCastToLobby(clientInfo.lobbyId, {
+                      type: "playerBackInLobby",
+                      msg: { playerId: info.playerId },
+                    });
+                  }
+                }
+              }
             }
           } catch (err) {
             sendError(ws, "leaving lobby failed");
@@ -609,6 +624,18 @@ wss.on("connection", async (ws, req) => {
                   reason: `${clientInfo.name} left the game`,
                 },
               });
+              const remainingSockets = lobbyToSockets.get(clientInfo.lobbyId);
+              if (remainingSockets) {
+                for (const s of remainingSockets) {
+                  const info = socketToClient.get(s);
+                  if (info?.playerId) {
+                    broadCastToLobby(clientInfo.lobbyId, {
+                      type: "playerBackInLobby",
+                      msg: { playerId: info.playerId },
+                    });
+                  }
+                }
+              }
             }
           }
         } catch (err) {

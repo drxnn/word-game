@@ -65,6 +65,19 @@ class _GameManager {
     if (!lobby) {
       throw new Error("Lobby with given code not found!");
     }
+    const gameStatus = await lobbiesModel.getGameStatus(lobby.id);
+    if (
+      gameStatus === GameStatus.started ||
+      gameStatus === GameStatus.voting ||
+      gameStatus === GameStatus.voted
+    ) {
+      throw new Error("Cannot join lobby while a game is in progress");
+    }
+
+    const currentCount = await lobbiesModel.countLobbyPlayers(lobby.id);
+    if (currentCount >= 12) {
+      throw new Error("Lobby is full (maximum 12 players)");
+    }
     try {
       const player = await playersModel.enterPlayer(name, lobby.id);
       const players = await playersModel.getAllPlayersInLobby(lobby.id);
