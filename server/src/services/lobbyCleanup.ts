@@ -3,7 +3,7 @@ import { lobbyToSockets } from "../ws/wsHelpers";
 
 const activeLobbies = new Map<string, number>();
 
-const LOBBY_MAX_AGE = 7200000; // 2h in ms
+const LOBBY_MAX_AGE = 7200000; //  in ms
 
 export function lobbyTracker(lobbyId: string) {
   activeLobbies.set(lobbyId, Date.now());

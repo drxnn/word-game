@@ -36,7 +36,6 @@ var LobbySchema = z.object({
   gameStarted: z.boolean().optional()
 });
 var gameOptionsSchema = z.object({
-  imposterKnows: z.boolean().optional(),
   imposterHint: z.boolean().optional(),
   numOfImposters: z.preprocess(
     (val) => val === null ? void 0 : val,
@@ -189,7 +188,7 @@ var ClientToServerMapSchema = z.object({
     code: z.string().regex(/^[A-Z0-9]+$/).trim().optional()
   }),
   auth: z.object({
-    token: z.string()
+    token: z.string().max(2e3)
   }),
   leaveLobby: z.object({
     lobbyId: z.uuid(),

@@ -30,8 +30,9 @@ export async function createLobby(
 
     const token = jwt.sign(
       {
-        player: player,
-        lobby: lobby,
+        playerId: player.id,
+        lobbyId: lobby.id,
+        code: lobby.code,
       },
       process.env.JWT_SECRET!,
       { expiresIn: "2h" },
@@ -62,9 +63,9 @@ export async function joinLobby(
 
     const token = jwt.sign(
       {
-        player: player,
-        lobby: lobby,
-        players: players,
+        playerId: player.id,
+        lobbyId: lobby.id,
+        code: lobby.code,
       },
       process.env.JWT_SECRET!,
       { expiresIn: "2h" },
@@ -92,27 +93,6 @@ export async function getLobby(
     let lobby = await getLobbyByCode(parsed.data.code);
 
     return res.status(200).json({ lobby });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function deleteLobby(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  const { id } = req.body;
-  const parsed = deleteLobbySchema.safeParse({ id });
-
-  if (!parsed.success) {
-    const prettyError = z.prettifyError(parsed.error);
-    return res.status(400).send(prettyError);
-  }
-  try {
-    let lobby = await GameManager.deleteLobby(parsed.data.id);
-
-    return res.status(200).send({ lobby });
   } catch (err) {
     next(err);
   }

@@ -97,7 +97,6 @@ declare const LobbySchema: z.ZodObject<{
     gameStarted: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strip>;
 declare const gameOptionsSchema: z.ZodObject<{
-    imposterKnows: z.ZodOptional<z.ZodBoolean>;
     imposterHint: z.ZodOptional<z.ZodBoolean>;
     numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
 }, z.core.$strip>;
@@ -110,7 +109,6 @@ declare const ClientInfoSchema: z.ZodObject<{
     sessionId: z.ZodOptional<z.ZodString>;
     code: z.ZodOptional<z.ZodString>;
     options: z.ZodOptional<z.ZodObject<{
-        imposterKnows: z.ZodOptional<z.ZodBoolean>;
         imposterHint: z.ZodOptional<z.ZodBoolean>;
         numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
     }, z.core.$strip>>;
@@ -119,7 +117,6 @@ type ClientInfo = z.infer<typeof ClientInfoSchema>;
 declare const createLobbySchema: z.ZodObject<{
     name: z.ZodString;
     options: z.ZodObject<{
-        imposterKnows: z.ZodOptional<z.ZodBoolean>;
         imposterHint: z.ZodOptional<z.ZodBoolean>;
         numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
     }, z.core.$strip>;
@@ -127,7 +124,6 @@ declare const createLobbySchema: z.ZodObject<{
 declare const startGameSchema: z.ZodObject<{
     lobbyId: z.ZodUUID;
     options: z.ZodOptional<z.ZodObject<{
-        imposterKnows: z.ZodOptional<z.ZodBoolean>;
         imposterHint: z.ZodOptional<z.ZodBoolean>;
         numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
     }, z.core.$strip>>;
@@ -198,7 +194,6 @@ declare const ServerToClientMapSchema: z.ZodObject<{
         isHost: z.ZodBoolean;
         assignedWord: z.ZodNullable<z.ZodString>;
         options: z.ZodObject<{
-            imposterKnows: z.ZodOptional<z.ZodBoolean>;
             imposterHint: z.ZodOptional<z.ZodBoolean>;
             numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
         }, z.core.$strip>;
@@ -350,7 +345,6 @@ declare const ClientToServerMapSchema: z.ZodObject<{
     startGame: z.ZodObject<{
         lobbyId: z.ZodUUID;
         options: z.ZodOptional<z.ZodObject<{
-            imposterKnows: z.ZodOptional<z.ZodBoolean>;
             imposterHint: z.ZodOptional<z.ZodBoolean>;
             numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
         }, z.core.$strip>>;
@@ -444,7 +438,6 @@ declare const ServerToClientSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
         isHost: z.ZodBoolean;
         assignedWord: z.ZodNullable<z.ZodString>;
         options: z.ZodObject<{
-            imposterKnows: z.ZodOptional<z.ZodBoolean>;
             imposterHint: z.ZodOptional<z.ZodBoolean>;
             numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
         }, z.core.$strip>;
@@ -618,7 +611,6 @@ declare const ClientToServerSchema: z.ZodDiscriminatedUnion<[z.ZodObject<{
     msg: z.ZodObject<{
         lobbyId: z.ZodUUID;
         options: z.ZodOptional<z.ZodObject<{
-            imposterKnows: z.ZodOptional<z.ZodBoolean>;
             imposterHint: z.ZodOptional<z.ZodBoolean>;
             numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
         }, z.core.$strip>>;

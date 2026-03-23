@@ -19,9 +19,9 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
+    "shared-types": "*",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.1.18",
-    "shared-types": "*"
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -80,7 +80,6 @@ var LobbySchema = import_zod.z.object({
   gameStarted: import_zod.z.boolean().optional()
 });
 var gameOptionsSchema = import_zod.z.object({
-  imposterKnows: import_zod.z.boolean().optional(),
   imposterHint: import_zod.z.boolean().optional(),
   numOfImposters: import_zod.z.preprocess(
     (val) => val === null ? void 0 : val,
@@ -233,7 +232,7 @@ var ClientToServerMapSchema = import_zod.z.object({
     code: import_zod.z.string().regex(/^[A-Z0-9]+$/).trim().optional()
   }),
   auth: import_zod.z.object({
-    token: import_zod.z.string()
+    token: import_zod.z.string().max(2e3)
   }),
   leaveLobby: import_zod.z.object({
     lobbyId: import_zod.z.uuid(),

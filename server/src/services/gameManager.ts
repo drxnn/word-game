@@ -10,35 +10,32 @@ import {
 } from "shared-types";
 import * as lobbiesModel from "../db/models/lobbies";
 import * as playersModel from "../db/models/players";
-import { enterPlayer } from "../db/models/players";
 
 const nanoid = customAlphabet("ABCDEFGHJKMNPQRSTUVWXYZ23456789", 6);
-function generateCode(len = 6) {
+function generateCode() {
   return nanoid();
 }
 
 class _GameManager {
   async startLobby({ name, options }: CreateLobbyInput) {
-    let imposterKnows = options?.imposterKnows ?? false;
+    let imposterKnows = options?.imposterHint ?? false;
     for (let i = 0; i < 5; i++) {
       let lobbyCode = generateCode();
 
       try {
-        const lobby = await lobbiesModel.createLobby(lobbyCode);
+        const { lobby, player } = await lobbiesModel.createLobby(
+          lobbyCode,
+          name,
+          options,
+        );
         if (!lobby) {
           throw new Error(
             "Something went wrong with lobby creation, try again",
           );
         }
-        const updatedLobby = await lobbiesModel.setImposterKnows(
-          lobby.id,
-          imposterKnows,
-        );
-        const playerStart = await enterPlayer(name, lobby.id);
-        const player = await playersModel.setIsHost(playerStart.id, lobby.id);
 
         return {
-          lobby: updatedLobby,
+          lobby,
           player,
         };
       } catch (err: any) {
@@ -89,23 +86,6 @@ class _GameManager {
     }
   }
 
-  async leaveLobby({ code, playerId }: LeaveLobbySchema) {
-    const lobby = await lobbiesModel.getLobbyByCode(code);
-
-    if (!lobby) throw new Error("Lobby not found");
-    const player = await playersModel.exitPlayer(playerId, lobby.id);
-
-    const playerCount = await lobbiesModel.countLobbyPlayers(lobby.id);
-    if (playerCount === 0) {
-      try {
-        await lobbiesModel.deleteLobby(lobby.id);
-      } catch (err) {
-        console.error("Failed to delete empty lobby:", err);
-      }
-    }
-    return player;
-  }
-
   async getLobby(lobbyId: string) {
     if (!lobbyId) {
       throw new Error("lobby id missing");
@@ -131,32 +111,10 @@ class _GameManager {
   async startGame(lobbyId: string, options?: GameOptions) {
     //
     if (!lobbyId) throw new Error("Lobby id is required");
+    const result = await lobbiesModel.startGameAtomic(lobbyId, options);
+    const { round, imposter } = result;
 
-    await lobbiesModel.resetLobbyVotingRound(lobbyId);
-
-    const imposterKnows = options?.imposterKnows ?? false;
-    const numOfImposters = options?.numOfImposters ?? 1;
-
-    const playerCount = await playersModel.playersLeftInGame(lobbyId);
-    if (playerCount < 3) throw new Error("Need at least 3 players to start");
-    if (numOfImposters >= playerCount) throw new Error("Too many imposters");
-
-    const round = await lobbiesModel.incrementVotingRound(lobbyId);
-    if (imposterKnows) {
-      await lobbiesModel.setImposterKnows(lobbyId, imposterKnows);
-    }
-
-    const imposter = await playersModel.assignImposter(lobbyId, numOfImposters);
-
-    await lobbiesModel.changeGameStatus(lobbyId, GameStatus.started);
-
-    await playersModel.assignWordsToPlayers(lobbyId);
-
-    return {
-      round,
-      imposter,
-      imposterKnows,
-    };
+    return { round, imposter };
   }
 
   async countVotes(lobbyId: string): Promise<PlayerVoteResult[]> {

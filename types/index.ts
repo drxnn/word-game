@@ -75,7 +75,6 @@ export const LobbySchema = z.object({
 });
 
 export const gameOptionsSchema = z.object({
-  imposterKnows: z.boolean().optional(),
   imposterHint: z.boolean().optional(),
   numOfImposters: z
     .preprocess(
@@ -263,7 +262,7 @@ export const ClientToServerMapSchema = z.object({
   }),
 
   auth: z.object({
-    token: z.string(),
+    token: z.string().max(2000),
   }),
   leaveLobby: z.object({
     lobbyId: z.uuid(),
