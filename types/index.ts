@@ -97,6 +97,7 @@ export const ClientInfoSchema = z.object({
     .length(6)
     .regex(/^[A-Z0-9]+$/)
     .optional(),
+  intentionalLeave: z.boolean().optional(),
   options: gameOptionsSchema.optional(),
 });
 

@@ -143,7 +143,7 @@ wss.on("connection", async (ws, req) => {
             sendError(ws, "missing required info");
             break;
           }
-
+          addToClientInfo(ws, { intentionalLeave: true } as any, clientId);
           try {
             await handlePlayerLeave(clientInfo);
             removeSocketFromLobby(clientInfo.lobbyId, ws);
@@ -268,16 +268,18 @@ wss.on("connection", async (ws, req) => {
       if (existing) {
         clearTimeout(existing);
       }
-      const timer = setTimeout(async () => {
-        try {
-          await handlePlayerLeave(clientInfo);
-        } catch (err) {
-          console.error("disconnect timer failed:", err);
-        } finally {
-          disconnectTimers.delete(clientInfo.playerId!);
-        }
-      }, 60000);
-      disconnectTimers.set(clientInfo.playerId, timer);
+      if (!clientInfo.intentionalLeave) {
+        const timer = setTimeout(async () => {
+          try {
+            await handlePlayerLeave(clientInfo);
+          } catch (err) {
+            console.error("disconnect timer failed:", err);
+          } finally {
+            disconnectTimers.delete(clientInfo.playerId!);
+          }
+        }, 60000);
+        disconnectTimers.set(clientInfo.playerId, timer);
+      }
     }
     if (clientInfo?.lobbyId) {
       const set = lobbyToSockets.get(clientInfo.lobbyId);

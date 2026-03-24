@@ -10,6 +10,13 @@ import { errorHandler } from "./middlewares/errorHandler";
 
 import rateLimit from "express-rate-limit";
 
+if (!process.env.JWT_SECRET || !process.env.DATABASE_URL) {
+  console.error(
+    `Missing required environment variable: JWT_SECRET | DATABASE_URL}`,
+  );
+  process.exit(1);
+}
+
 export const app = express();
 app.set("trust proxy", 1);
 app.use(

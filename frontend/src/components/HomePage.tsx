@@ -244,7 +244,7 @@ export default function HomePage() {
         <div className="w-full max-w-md">
           <div className="text-center mb-12">
             <h1 className="text-6xl font-bold bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-800 bg-clip-text text-transparent mb-2">
-              Codeword
+              No Clue
             </h1>
             <p className="text-slate-500 text-lg"></p>
           </div>

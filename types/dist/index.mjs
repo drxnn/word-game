@@ -50,6 +50,7 @@ var ClientInfoSchema = z.object({
   name: z.string().trim().max(50).optional(),
   sessionId: z.string().optional(),
   code: z.string().trim().length(6).regex(/^[A-Z0-9]+$/).optional(),
+  intentionalLeave: z.boolean().optional(),
   options: gameOptionsSchema.optional()
 });
 var createLobbySchema = z.object({

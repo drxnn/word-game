@@ -1,6 +1,6 @@
 # Codename
 
-Codename is a social deduction game played with a group of friends in the same room. At the start of each round, every player is secretly assigned a word except for for one player, the **imposter**, who either receives nothing or a vague hint depending on the game mode.
+No Clue is a social deduction game played with a group of friends in the same room. At the start of each round, every player is secretly assigned a word except for for one player, the **imposter**, who either receives no clue or a vague hint depending on the game mode.
 
 Once words are assigned, players take turns around the circle and each say a single word out loud as a hint toward their secret word. The imposter, not knowing the real word, has to listen carefully and try to piece together what everyone else is hinting at without getting caught.
 

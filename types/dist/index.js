@@ -94,6 +94,7 @@ var ClientInfoSchema = import_zod.z.object({
   name: import_zod.z.string().trim().max(50).optional(),
   sessionId: import_zod.z.string().optional(),
   code: import_zod.z.string().trim().length(6).regex(/^[A-Z0-9]+$/).optional(),
+  intentionalLeave: import_zod.z.boolean().optional(),
   options: gameOptionsSchema.optional()
 });
 var createLobbySchema = import_zod.z.object({

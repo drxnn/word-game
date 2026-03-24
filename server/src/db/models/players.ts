@@ -497,10 +497,10 @@ export async function assignWordsToPlayers(
     `,
       [wordPairId],
     );
-    if (!rows[0]) throw new Error("Something went wrong, word_pair not found.");
 
+    if (!rows[0]) throw new Error("Something went wrong, word_pair not found.");
     const { realWord, imposterWord } = camelcaseKeys(rows[0]);
-    if (!rows[0] || !realWord || !imposterWord) {
+    if (!realWord || !imposterWord) {
       throw new Error("Something went wrong, word_pair not found.");
     }
 

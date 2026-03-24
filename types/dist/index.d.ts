@@ -108,6 +108,7 @@ declare const ClientInfoSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     sessionId: z.ZodOptional<z.ZodString>;
     code: z.ZodOptional<z.ZodString>;
+    intentionalLeave: z.ZodOptional<z.ZodBoolean>;
     options: z.ZodOptional<z.ZodObject<{
         imposterHint: z.ZodOptional<z.ZodBoolean>;
         numOfImposters: z.ZodDefault<z.ZodPipe<z.ZodTransform<{} | undefined, unknown>, z.ZodUnion<readonly [z.ZodLiteral<1>, z.ZodLiteral<2>, z.ZodLiteral<3>]>>>;
