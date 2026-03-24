@@ -206,6 +206,12 @@ export async function authHandler(
     }
 
     addSocketToLobby(lobbyId, ws);
+    if (gameStatus === GameStatus.gameOver || gameStatus === GameStatus.idle) {
+      broadCastToLobby(lobbyId, {
+        type: "playerBackInLobby",
+        msg: { playerId: freshPlayer.id },
+      });
+    }
 
     //
 
