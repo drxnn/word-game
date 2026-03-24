@@ -64,6 +64,7 @@ export function lobbyReducer(state: LobbyType, action: LobbyAction) {
       };
     }
     case "EXIT_TO_LOBBY": {
+      if (!state.lobby) return state;
       return {
         ...state,
         lobby: {
